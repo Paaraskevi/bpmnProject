@@ -1,0 +1,165 @@
+ <div class="bpmn-container">
+    <div class="bpmn-toolbar">
+        <div class="toolbar-group">
+            <button class="toolbar-btn" (click)="createNewDiagram()">
+                <i class="bx bx-plus"></i> New
+            </button>
+            <input
+                #fileInput
+                type="file"
+                accept=".bpmn,.xml"
+                (change)="onFileChange($event)"
+                style="display: none" />
+            <button class="toolbar-btn" (click)="fileInput.click()">
+                <i class="bx bx-folder-open"></i> Open
+            </button>
+            <button class="toolbar-btn" (click)="saveDiagram()">
+                <i class="bx bx-download"></i> Save
+            </button>
+        </div>
+        <div class="toolbar-group">
+            <button class="toolbar-btn" (click)="zoomIn()">
+               <i class="fa-thin fa-plus"></i>
+            </button>
+            <button class="toolbar-btn" (click)="zoomOut()">
+              <i class="fa-solid fa-minus"></i>
+            </button>
+            <button class="toolbar-btn" (click)="zoomToFit()">
+               <i class="fa-thin fa-expand"></i>
+            </button>
+        </div>
+    </div>
+    <div #modelerContainer class="modeler-container" id="js-canvas"></div>
+    <div class="properties-panel" *ngIf="selectedElement">
+        <h3>Properties</h3>
+        <div class="properties-actions">
+            </div>
+        <div class="property-item">
+            <label>Name:</label>
+            <span>{{ selectedElement.name }}</span>
+        </div>
+        <div class="property-item">
+            <label>Element ID:</label>
+            <span>{{ selectedElement.id }}</span>
+        </div>
+        <div class="property-item">
+            <label>Element Type:</label>
+            <span>{{ selectedElement.type }}</span>
+        </div>
+        <div class="property-item" *ngIf="selectedElement.businessObject">
+            <label>Business Object:</label>
+            <span>{{ selectedElement.businessObject.$type }}</span>
+        </div>
+        <div class="property-item" *ngIf="selectedElement.businessObject">
+            <label>Documentation:</label>
+            <span>{{ selectedElement.businessObject.documentation?.[0]?.text ||
+                'N/A' }}</span>
+        </div>
+        <div class="property-item" *ngIf="selectedElement.businessObject">
+            <label>Outgoing:</label>
+            <span>{{ selectedElement.businessObject.outgoing?.length || 0
+                }}</span>
+        </div>
+        <div class="property-item" *ngIf="selectedElement.businessObject">
+            <label>Incoming:</label>
+            <span>{{ selectedElement.businessObject.incoming?.length || 0
+                }}</span>
+        </div>
+        <div class="property-item" *ngIf="selectedElement.businessObject">
+            <label>Process:</label>
+            <span>{{ selectedElement.businessObject.processRef?.id || 'N/A'
+                }}</span>
+        </div>
+        <div class="property-item" *ngIf="selectedElement.businessObject">
+            <label>Loop Characteristics:</label>
+            <span>{{ selectedElement.businessObject.loopCharacteristics?.$type
+                || 'N/A' }}</span>
+        </div>
+        <div class="property-item" *ngIf="selectedElement.businessObject">
+            <label>Execution Listener:</label>
+            <span>{{
+                selectedElement.businessObject.executionListener?.[0]?.event ||
+                'N/A' }}</span>
+        </div>
+        <div class="property-item" *ngIf="selectedElement.businessObject">
+            <label>Task Type:</label>
+            <span>{{ selectedElement.businessObject.type || 'N/A' }}</span>
+        </div>
+        <div class="property-item" *ngIf="selectedElement.businessObject">
+            <label>Assignee:</label>
+            <span>{{ selectedElement.businessObject.assignee || 'N/A' }}</span>
+        </div>
+        <div class="property-item" *ngIf="selectedElement.businessObject">
+            <label>Candidate Users:</label>
+            <span>{{ selectedElement.businessObject.candidateUsers?.join(', ')
+                || 'N/A' }}</span>
+        </div>
+        <div class="property-item" *ngIf="selectedElement.businessObject">
+            <label>Candidate Groups:</label>
+            <span>{{ selectedElement.businessObject.candidateGroups?.join(', ')
+                || 'N/A' }}</span>
+        </div>
+        <div class="property-item" *ngIf="selectedElement.businessObject">
+            <label>Form Key:</label>
+            <span>{{ selectedElement.businessObject.formKey || 'N/A' }}</span>
+        </div>
+        <div class="property-item" *ngIf="selectedElement.businessObject">
+            <label>Priority:</label>
+            <span>{{ selectedElement.businessObject.priority || 'N/A' }}</span>
+        </div>
+        <div class="property-item" *ngIf="selectedElement.businessObject">
+            <label>Due Date:</label>
+            <span>{{ selectedElement.businessObject.dueDate || 'N/A' }}</span>
+        </div>
+        <div class="property-item" *ngIf="selectedElement.businessObject">
+            <label>Follow Up Date:</label>
+            <span>{{ selectedElement.businessObject.followUpDate || 'N/A'
+                }}</span>
+        </div>
+        <div class="property-item" *ngIf="selectedElement.businessObject">
+            <label>Candidate Starter:</label>
+            <span>{{ selectedElement.businessObject.candidateStarter || 'N/A'
+                }}</span>
+        </div>
+
+        <div class="property-item" *ngIf="selectedElement.businessObject">
+            <label>Execution Time:</label>
+            <span>{{ selectedElement.businessObject.executionTime || 'N/A'
+                }}</span>
+        </div>
+        <div class="property-item" *ngIf="selectedElement.businessObject">
+            <label>Form Properties:</label>
+            <span>{{ selectedElement.businessObject.formProperties?.length || 0
+                }}</span>
+        </div>
+        <div class="property-item" *ngIf="selectedElement.businessObject">
+            <label>Variables:</label>
+            <span>{{ selectedElement.businessObject.variables?.length || 0
+                }}</span>
+        </div>
+        <div class="property-item" *ngIf="selectedElement.businessObject">
+            <label>Input Parameters:</label>
+            <span>{{ selectedElement.businessObject.inputParameters?.length ||
+                0 }}</span>
+        </div>
+        <div class="property-item" *ngIf="selectedElement.businessObject">
+            <label>Output Parameters:</label>
+            <span>{{ selectedElement.businessObject.outputParameters?.length ||
+                0 }}</span>
+
+        </div>
+        <div class="property-item" *ngIf="selectedElement.businessObject">
+            <label>Event Definitions:</label>
+            <span>{{ selectedElement.businessObject.eventDefinitions?.length ||
+                0 }}</span>
+
+        </div>
+        <div class="property-item" *ngIf="selectedElement.businessObject">
+            <label>Extension Elements:</label>
+            <span>{{ selectedElement.businessObject.extensionElements?.values?.length ||
+                0 }}</span>
+        </div>
+        <div class="property-item" *ngIf="selectedElement.businessObject">
+            <label>Execution Time:</label>
+            <span>{{ selectedElement.businessObject.executionTime || 'N/A' }}</span>
+        </div>

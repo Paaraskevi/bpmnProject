@@ -1,0 +1,114 @@
+
+    .bpmn-container {
+      height: calc(100vh - 80px);
+      display: flex;
+      flex-direction: column;
+      background: #f8f9fa;
+    }
+
+    .bpmn-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem;
+      background: white;
+      border-bottom: 1px solid #e2e8f0;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .toolbar-group {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .toolbar-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all 0.3s ease;
+    }
+
+    .toolbar-btn:hover {
+      background: #5a6fd8;
+      transform: translateY(-2px);
+    }
+
+    .toolbar-btn i {
+      font-size: 1.1rem;
+    }
+
+    .modeler-container {
+      flex: 1;
+      position: relative;
+      background: white;
+      overflow: hidden;
+    }
+
+    .properties-panel {
+      position: absolute;
+      top: 80px;
+      right: 0;
+      width: 300px;
+      height: calc(100vh - 160px);
+      background: white;
+      border-left: 1px solid #e2e8f0;
+      padding: 1rem;
+      box-shadow: -2px 0 8px rgba(0,0,0,0.1);
+      overflow-y: auto;
+    }
+
+    .properties-panel h3 {
+      margin-bottom: 1rem;
+      color: #2d3748;
+      font-size: 1.2rem;
+    }
+
+    .property-item {
+      margin-bottom: 1rem;
+    }
+
+    .property-item label {
+      display: block;
+      font-weight: 600;
+      color: #4a5568;
+      margin-bottom: 0.25rem;
+    }
+
+    .property-item span {
+      color: #667eea;
+      font-family: monospace;
+    }
+
+    /* BPMN.js specific styles */
+    :host ::ng-deep .djs-container {
+      background: #fafafa !important;
+    }
+
+    :host ::ng-deep .djs-palette {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    :host ::ng-deep .djs-palette .entry {
+      border-radius: 4px;
+    }
+
+    :host ::ng-deep .djs-palette .entry:hover {
+      background: #f7fafc;
+    }
+
+    :host ::ng-deep .djs-context-pad {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
