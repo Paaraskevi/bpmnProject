@@ -5,21 +5,31 @@ import { AuthGuard } from './guards/auth.guard';
 import { RegisterComponent } from './components/register/register.component';
 import { LayoutComponent } from './components/layout/layout.component';
 import { BpmnModelerComponent } from './components/bpmn-modeler/bpmn-modeler.component';
+import { ListFilesComponent } from './list-files/list-files.component';
 
 export const routes: Routes = [
-    { path: '', redirectTo: 'login', pathMatch: 'full' },
+      { path: '', redirectTo: 'login', pathMatch: 'full' },
     { path: 'login', component: LoginComponent },
     { path: 'register', component: RegisterComponent },
-    { path: 'dashboard', component: DashboardComponent, canActivate: [AuthGuard] },
-    { path: 'modeler', component: BpmnModelerComponent, canActivate: [AuthGuard] },
+    
+    // Standalone routes (outside of layout)
+    { path: 'dashboard', component: DashboardComponent, },
+    { path: 'modeler', component: BpmnModelerComponent,  },
+    { path: 'list', component: ListFilesComponent, },
+    
+    // Layout-wrapped routes
     {
         path: 'app', 
         component: LayoutComponent,
         canActivate: [AuthGuard],
         children: [
+            { path: '', redirectTo: 'dashboard', pathMatch: 'full' }, // Default child route
             { path: 'modeler', component: BpmnModelerComponent },
-            { path: 'dashboard', component: DashboardComponent }
+            { path: 'dashboard', component: DashboardComponent },
+            { path: 'list', component: ListFilesComponent }
         ]
     },
+    
+    // Wildcard route - MUST be last
     { path: '**', redirectTo: 'login' }
 ];

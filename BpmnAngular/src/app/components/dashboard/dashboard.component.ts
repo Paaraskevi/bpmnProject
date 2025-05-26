@@ -1,12 +1,12 @@
 // dashboard.component.ts
 import { Component } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { CommonModule } from '@angular/common';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule,RouterModule],
   template: `
     <div class="dashboard-container">
       <div class="welcome-section">
@@ -23,12 +23,12 @@ import { CommonModule } from '@angular/common';
            <p><a routerLink="/modeler">Create and edit BPMN diagrams</a></p>
         </div>
         
-        <div class="card">
+         <div class="card" (click)="navigateToFileList()">
           <div class="card-icon">
             <i class="bx bx-folder-open"></i>
           </div>
           <h3>Recent Files</h3>
-          <p>Access your recent projects</p>
+             <p><a routerLink="/list">Access your recent projects</a></p>
         </div>
         
         <div class="card">
@@ -56,7 +56,7 @@ import { CommonModule } from '@angular/common';
     .welcome-section h1 {
       font-size: 3rem;
       font-weight: 800;
-      background: linear-gradient(135deg, #667eea, #764ba2);
+      background: linear-gradient(135deg, #969aab 0%, #151316 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
@@ -116,5 +116,8 @@ export class DashboardComponent {
   
   navigateToModeler(): void {
     this.router.navigateByUrl('/modeler');
+  }
+  navigateToFileList(): void {
+    this.router.navigateByUrl('/app/list');
   }
 }

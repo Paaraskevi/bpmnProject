@@ -24,6 +24,7 @@ export class AppComponent implements OnInit {
   ) {}
   
   ngOnInit() {
+   
     // Check authentication status on app initialization
     this.checkAuthStatus();
     

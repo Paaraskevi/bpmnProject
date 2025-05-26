@@ -1,4 +1,4 @@
-package com.jts.login.config;
+package com.jts.BpmnJava.config;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -9,7 +9,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-import com.jts.login.dto.User;
+import com.jts.BpmnJava.dto.User;
 
 public class UserInfoUserDetails implements UserDetails {
 

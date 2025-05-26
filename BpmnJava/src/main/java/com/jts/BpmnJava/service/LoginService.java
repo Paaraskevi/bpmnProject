@@ -1,4 +1,4 @@
-package com.jts.login.service;
+package com.jts.BpmnJava.service;
 
 import java.util.Optional;
 
@@ -6,11 +6,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import com.jts.login.dto.LoginRequest;
-import com.jts.login.dto.SignupRequest;
-import com.jts.login.dto.SignupResponse;
-import com.jts.login.dto.User;
-import com.jts.login.repo.LoginRepository;
+import com.jts.BpmnJava.dto.LoginRequest;
+import com.jts.BpmnJava.dto.SignupRequest;
+import com.jts.BpmnJava.dto.SignupResponse;
+import com.jts.BpmnJava.dto.User;
+import com.jts.BpmnJava.repo.LoginRepository;
 
 @Service
 public class LoginService {

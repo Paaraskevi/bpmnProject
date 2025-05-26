@@ -1,4 +1,4 @@
-package com.jts.login.controller;
+package com.jts.BpmnJava.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -6,20 +6,19 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.jts.login.config.JWTService;
-import com.jts.login.dto.DashboardResponse;
-import com.jts.login.dto.LoginRequest;
-import com.jts.login.dto.LoginResponse;
-import com.jts.login.dto.SignupRequest;
-import com.jts.login.dto.SignupResponse;
-import com.jts.login.service.LoginService;
+import com.jts.BpmnJava.config.JWTService;
+import com.jts.BpmnJava.dto.DashboardResponse;
+import com.jts.BpmnJava.dto.LoginRequest;
+import com.jts.BpmnJava.dto.LoginResponse;
+import com.jts.BpmnJava.dto.SignupRequest;
+import com.jts.BpmnJava.dto.SignupResponse;
+import com.jts.BpmnJava.service.LoginService;
 
 @RestController
 @RequestMapping("/api")

@@ -1,4 +1,4 @@
-package com.jts.login;
+package com.jts.BpmnJava;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
