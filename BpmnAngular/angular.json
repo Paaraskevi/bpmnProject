@@ -3,7 +3,7 @@
   "version": 1,
   "newProjectRoot": "projects",
   "projects": {
-    "login-angular18-spring-boot-integration": {
+    "Bpmn-angular": {
       "projectType": "application",
       "schematics": {},
       "root": "",
@@ -13,7 +13,7 @@
         "build": {
           "builder": "@angular-devkit/build-angular:application",
           "options": {
-            "outputPath": "dist/login-angular18-spring-boot-integration",
+            "outputPath": "dist/Bpmn-angular",
             "index": "src/index.html",
             "browser": "src/main.ts",
             "polyfills": [
@@ -62,10 +62,10 @@
           "builder": "@angular-devkit/build-angular:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "login-angular18-spring-boot-integration:build:production"
+              "buildTarget": "Bpmn-angular-integration:build:production"
             },
             "development": {
-              "buildTarget": "login-angular18-spring-boot-integration:build:development"
+              "buildTarget": "Bpmn-angular:build:development"
             }
           },
           "defaultConfiguration": "development"
