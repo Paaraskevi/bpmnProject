@@ -1,29 +1,36 @@
 import { Injectable } from '@angular/core';
-import { ActivatedRouteSnapshot, CanActivate, CanActivateFn, GuardResult, MaybeAsync, Router, RouterStateSnapshot } from '@angular/router';
-import { LocalStorageService } from '../services/local-storage.service';
+import { CanActivate, CanActivateChild, Router, ActivatedRouteSnapshot, RouterStateSnapshot } from '@angular/router';
+import { Observable } from 'rxjs';
+import { AuthenticationService } from '../services/authentication.service';
 
 @Injectable({
   providedIn: 'root'
 })
-export class AuthGuard implements  CanActivate {
+export class AuthGuard implements CanActivate, CanActivateChild {
+  
+  constructor(private authService: AuthenticationService, private router: Router) {}
 
-  constructor(private authService: LocalStorageService, private router: Router) {
-
+  canActivate(
+    route: ActivatedRouteSnapshot,
+    state: RouterStateSnapshot
+  ): Observable<boolean> | Promise<boolean> | boolean {
+    return this.checkAuth(state.url);
   }
- 
-  canActivate(): boolean {
-    return this.checkAuth();
+
+  canActivateChild(
+    route: ActivatedRouteSnapshot,
+    state: RouterStateSnapshot
+  ): Observable<boolean> | Promise<boolean> | boolean {
+    return this.checkAuth(state.url);
   }
 
-  private checkAuth(): boolean {
-    console.log("Guard Auth Key::"+ this.authService.get('auth-key'));
-
-    if (this.authService.get('auth-key')) {
+  private checkAuth(url: string): boolean {
+    if (this.authService.isAuthenticated()) {
       return true;
-    } else {
-      this.router.navigate(['/login']);
-      return false;
     }
-  }
 
-};
+    // Store the attempted URL for redirecting after login
+    this.router.navigate(['/auth/login'], { queryParams: { returnUrl: url } });
+    return false;
+  }
+}
