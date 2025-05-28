@@ -1,114 +1,247 @@
+/* bpmn-modeler.component.css */
+.bpmn-container {
+  height: calc(100vh - 80px);
+  display: flex;
+  flex-direction: column;
+  background: #f8f9fa;
+}
 
-    .bpmn-container {
-      height: calc(100vh - 80px);
-      display: flex;
-      flex-direction: column;
-      background: #f8f9fa;
-    }
+.bpmn-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: white;
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
 
-    .bpmn-toolbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 1rem;
-      background: white;
-      border-bottom: 1px solid #e2e8f0;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
+.toolbar-group {
+  display: flex;
+  gap: 0.5rem;
+}
 
-    .toolbar-group {
-      display: flex;
-      gap: 0.5rem;
-    }
+.toolbar-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 18px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
 
-    .toolbar-btn {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.5rem 1rem;
-      background: #667eea;
-      color: white;
-      border: none;
-      border-radius: 18px;
-      cursor: pointer;
-      font-size: 0.9rem;
-      transition: all 0.3s ease;
-    }
+.toolbar-btn:hover {
+  background: #5a6fd8;
+  transform: translateY(-2px);
+}
 
-    .toolbar-btn:hover {
-      background: #5a6fd8;
-      transform: translateY(-2px);
-    }
+.toolbar-btn i {
+  font-size: 1.1rem;
+}
 
-    .toolbar-btn i {
-      font-size: 1.1rem;
-    }
+.modeler-container {
+  flex: 1;
+  position: relative;
+  background: white;
+  overflow: hidden;
+}
 
-    .modeler-container {
-      flex: 1;
-      position: relative;
-      background: white;
-      overflow: hidden;
-    }
+.properties-panel {
+  position: absolute;
+  top: 80px;
+  right: 0;
+  width: 320px;
+  height: calc(100vh - 160px);
+  background: white;
+  border-left: 1px solid #e2e8f0;
+  box-shadow: -2px 0 8px rgba(0,0,0,0.1);
+  overflow-y: auto;
+  z-index: 100;
+}
 
-    .properties-panel {
-      position: absolute;
-      top: 80px;
-      right: 0;
-      width: 300px;
-      height: calc(100vh - 160px);
-      background: white;
-      border-left: 1px solid #e2e8f0;
-      padding: 1rem;
-      box-shadow: -2px 0 8px rgba(0,0,0,0.1);
-      overflow-y: auto;
-    }
+.properties-header {
+  padding: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8f9fa;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
 
-    .properties-panel h3 {
-      margin-bottom: 1rem;
-      color: #2d3748;
-      font-size: 1.2rem;
-    }
+.properties-header h3 {
+  margin: 0;
+  color: #2d3748;
+  font-size: 1.2rem;
+}
 
-    .property-item {
-      margin-bottom: 1rem;
-    }
+.properties-actions {
+  display: flex;
+  gap: 0.5rem;
+}
 
-    .property-item label {
-      display: block;
-      font-weight: 600;
-      color: #4a5568;
-      margin-bottom: 0.25rem;
-    }
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.4rem 0.8rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: white;
+  color: #4a5568;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.2s ease;
+}
 
-    .property-item span {
-      color: #667eea;
-      font-family: monospace;
-    }
+.action-btn:hover {
+  background: #f7fafc;
+  border-color: #cbd5e0;
+}
 
-    /* BPMN.js specific styles */
-    :host ::ng-deep .djs-container {
-      background: #fafafa !important;
-    }
+.edit-btn.active {
+  background: #48bb78;
+  color: white;
+  border-color: #48bb78;
+}
 
-    :host ::ng-deep .djs-palette {
-      background: white;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    }
+.edit-btn.active:hover {
+  background: #38a169;
+}
 
-    :host ::ng-deep .djs-palette .entry {
-      border-radius: 4px;
-    }
+.cancel-btn {
+  background: #fed7d7;
+  color: #c53030;
+  border-color: #feb2b2;
+}
 
-    :host ::ng-deep .djs-palette .entry:hover {
-      background: #f7fafc;
-    }
+.cancel-btn:hover {
+  background: #fbb6ce;
+}
 
-    :host ::ng-deep .djs-context-pad {
-      background: white;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    }
+.properties-readonly,
+.properties-edit {
+  padding: 1rem;
+}
+
+.property-item {
+  margin-bottom: 1rem;
+}
+
+.property-item label {
+  display: block;
+  font-weight: 600;
+  color: #4a5568;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.property-item span {
+  color: #667eea;
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  word-break: break-all;
+}
+
+.property-input,
+.property-textarea {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  transition: border-color 0.2s ease;
+  font-family: inherit;
+}
+
+.property-input:focus,
+.property-textarea:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.property-textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+/* Success message for saved changes */
+.save-success {
+  position: fixed;
+  top: 100px;
+  right: 340px;
+  background: #48bb78;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  z-index: 200;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* BPMN.js specific styles */
+:host ::ng-deep .djs-container {
+  background: #fafafa !important;
+}
+
+:host ::ng-deep .djs-palette {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+:host ::ng-deep .djs-palette .entry {
+  border-radius: 4px;
+}
+
+:host ::ng-deep .djs-palette .entry:hover {
+  background: #f7fafc;
+}
+
+:host ::ng-deep .djs-context-pad {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+  .properties-panel {
+    width: 280px;
+  }
+}
+
+@media (max-width: 768px) {
+  .properties-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    z-index: 1000;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+  }
+  
+  .properties-panel.active {
+    transform: translateX(0);
+  }
+}

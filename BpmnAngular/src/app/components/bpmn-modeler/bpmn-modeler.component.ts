@@ -1,23 +1,40 @@
+// bpmn-modeler.component.ts
 import { Component, ElementRef, OnInit, OnDestroy, ViewChild, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 
 // Import BPMN.js (after npm install bpmn-js)
 import BpmnModeler from 'bpmn-js/lib/Modeler';
-import { FormGroup, ReactiveFormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-bpmn-modeler',
   standalone: true,
-  imports: [CommonModule,ReactiveFormsModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './bpmn-modeler.component.html',
   styleUrl: './bpmn-modeler.component.css'
 })
 export class BpmnModelerComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('modelerContainer', { static: true }) modelerContainer!: ElementRef;
 
-  propertiesForm = FormGroup;
   private modeler!: BpmnModeler;
   selectedElement: any = null;
+  isEditMode: boolean = false;
+  
+  // Editable properties
+  editableProperties: any = {
+    name: '',
+    id: '',
+    documentation: '',
+    assignee: '',
+    candidateUsers: '',
+    candidateGroups: '',
+    formKey: '',
+    priority: '',
+    dueDate: '',
+    followUpDate: '',
+    candidateStarter: '',
+    executionTime: ''
+  };
 
   private defaultXml = `<?xml version="1.0" encoding="UTF-8"?>
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" 
@@ -82,12 +99,40 @@ export class BpmnModelerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.modeler.on('selection.changed', (e: any) => {
       const element = e.newSelection[0];
       this.selectedElement = element || null;
+      this.isEditMode = false;
+      
+      if (this.selectedElement) {
+        this.loadElementProperties();
+      }
     });
 
     // Listen for element changes
     this.modeler.on('element.changed', (e: any) => {
       console.log('Element changed:', e.element);
     });
+  }
+
+  private loadElementProperties(): void {
+    if (!this.selectedElement || !this.selectedElement.businessObject) {
+      return;
+    }
+
+    const bo = this.selectedElement.businessObject;
+    
+    this.editableProperties = {
+      name: bo.name || '',
+      id: bo.id || '',
+      documentation: bo.documentation?.[0]?.text || '',
+      assignee: bo.assignee || '',
+      candidateUsers: bo.candidateUsers?.join(', ') || '',
+      candidateGroups: bo.candidateGroups?.join(', ') || '',
+      formKey: bo.formKey || '',
+      priority: bo.priority || '',
+      dueDate: bo.dueDate || '',
+      followUpDate: bo.followUpDate || '',
+      candidateStarter: bo.candidateStarter || '',
+      executionTime: bo.executionTime || ''
+    };
   }
 
   private loadDiagram(xml: string): void {
@@ -106,6 +151,7 @@ export class BpmnModelerComponent implements OnInit, AfterViewInit, OnDestroy {
   createNewDiagram(): void {
     this.loadDiagram(this.defaultXml);
     this.selectedElement = null;
+    this.isEditMode = false;
   }
 
   onFileChange(event: Event): void {
@@ -143,6 +189,95 @@ export class BpmnModelerComponent implements OnInit, AfterViewInit, OnDestroy {
     link.download = filename;
     link.click();
     window.URL.revokeObjectURL(url);
+  }
+
+  // Property editing methods
+  toggleEditMode(): void {
+    if (this.isEditMode) {
+      this.saveProperties();
+    }
+    this.isEditMode = !this.isEditMode;
+  }
+
+  saveProperties(): void {
+    if (!this.selectedElement || !this.selectedElement.businessObject) {
+      return;
+    }
+
+    const modeling = this.modeler.get('modeling');
+    const bo = this.selectedElement.businessObject;
+
+    // Update basic properties
+    if (this.editableProperties.name !== bo.name) {
+      modeling.updateProperties(this.selectedElement, {
+        name: this.editableProperties.name || undefined
+      });
+    }
+
+    // Update documentation
+    if (this.editableProperties.documentation !== (bo.documentation?.[0]?.text || '')) {
+      const documentation = this.editableProperties.documentation ? 
+        [{ text: this.editableProperties.documentation }] : undefined;
+      
+      modeling.updateProperties(this.selectedElement, {
+        documentation: documentation
+      });
+    }
+
+    // Update process-specific properties
+    const processProperties: any = {};
+
+    if (this.editableProperties.assignee !== (bo.assignee || '')) {
+      processProperties.assignee = this.editableProperties.assignee || undefined;
+    }
+
+    if (this.editableProperties.candidateUsers !== (bo.candidateUsers?.join(', ') || '')) {
+      processProperties.candidateUsers = this.editableProperties.candidateUsers ? 
+        this.editableProperties.candidateUsers.split(',').map((u: string) => u.trim()).filter((u: string) => u) : 
+        undefined;
+    }
+
+    if (this.editableProperties.candidateGroups !== (bo.candidateGroups?.join(', ') || '')) {
+      processProperties.candidateGroups = this.editableProperties.candidateGroups ? 
+        this.editableProperties.candidateGroups.split(',').map((g: string) => g.trim()).filter((g: string) => g) : 
+        undefined;
+    }
+
+    if (this.editableProperties.formKey !== (bo.formKey || '')) {
+      processProperties.formKey = this.editableProperties.formKey || undefined;
+    }
+
+    if (this.editableProperties.priority !== (bo.priority || '')) {
+      processProperties.priority = this.editableProperties.priority || undefined;
+    }
+
+    if (this.editableProperties.dueDate !== (bo.dueDate || '')) {
+      processProperties.dueDate = this.editableProperties.dueDate || undefined;
+    }
+
+    if (this.editableProperties.followUpDate !== (bo.followUpDate || '')) {
+      processProperties.followUpDate = this.editableProperties.followUpDate || undefined;
+    }
+
+    if (this.editableProperties.candidateStarter !== (bo.candidateStarter || '')) {
+      processProperties.candidateStarter = this.editableProperties.candidateStarter || undefined;
+    }
+
+    if (this.editableProperties.executionTime !== (bo.executionTime || '')) {
+      processProperties.executionTime = this.editableProperties.executionTime || undefined;
+    }
+
+    // Apply process properties if any changes exist
+    if (Object.keys(processProperties).length > 0) {
+      modeling.updateProperties(this.selectedElement, processProperties);
+    }
+
+    console.log('Properties saved successfully');
+  }
+
+  cancelEdit(): void {
+    this.isEditMode = false;
+    this.loadElementProperties(); // Reload original properties
   }
 
   zoomIn(): void {

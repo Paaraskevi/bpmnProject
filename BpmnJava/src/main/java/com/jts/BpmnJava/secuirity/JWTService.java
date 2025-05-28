@@ -1,6 +1,5 @@
-package com.jts.BpmnJava.config;
+package com.jts.BpmnJava.secuirity;
 
-import com.jts.BpmnJava.user.User;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;

@@ -1,4 +1,4 @@
-package com.jts.BpmnJava.dto;
+package com.jts.BpmnJava.token;
 
 public enum TokenType {
     BEARER

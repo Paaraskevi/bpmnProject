@@ -1,7 +1,8 @@
-package com.jts.BpmnJava.config;
+package com.jts.BpmnJava.secuirity;
 
 import java.io.IOException;
 
+import com.jts.BpmnJava.config.UserInfoUserDetailsService;
 import com.jts.BpmnJava.token.TokenRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;

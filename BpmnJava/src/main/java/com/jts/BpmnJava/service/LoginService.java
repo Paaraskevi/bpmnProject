@@ -7,9 +7,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.jts.BpmnJava.dto.LoginRequest;
-import com.jts.BpmnJava.dto.SignupRequest;
+import com.jts.BpmnJava.auth.RegisterRequest;
 import com.jts.BpmnJava.dto.SignupResponse;
-import com.jts.BpmnJava.dto.User;
+import com.jts.BpmnJava.user.User;
 import com.jts.BpmnJava.repo.LoginRepository;
 
 @Service
@@ -31,7 +31,7 @@ public class LoginService {
 		return "User details not found";
 	}
 	
-	public SignupResponse doRegister(SignupRequest request) {
+	public SignupResponse doRegister(RegisterRequest request) {
 		Optional<User> users = loginRepository.findByUsername(request.getUsername());
 		
 		SignupResponse response = new SignupResponse();

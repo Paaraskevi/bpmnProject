@@ -1,11 +1,10 @@
-package com.jts.BpmnJava.config;
+package com.jts.BpmnJava.auth;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.springframework.stereotype.Service;
 
 @Data
 @Builder

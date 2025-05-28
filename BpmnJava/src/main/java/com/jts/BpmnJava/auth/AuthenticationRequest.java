@@ -1,4 +1,4 @@
-package com.jts.BpmnJava.config;
+package com.jts.BpmnJava.auth;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -12,5 +12,5 @@ import lombok.NoArgsConstructor;
 public class AuthenticationRequest {
 
     private String email;
-    String password;
+    private String password;
 }

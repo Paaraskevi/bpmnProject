@@ -1,4 +1,4 @@
-package com.jts.BpmnJava.dto;
+package com.jts.BpmnJava.user;
 
 import lombok.Getter;
 

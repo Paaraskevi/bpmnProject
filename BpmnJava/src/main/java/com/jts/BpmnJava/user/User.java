@@ -1,17 +1,18 @@
-package com.jts.BpmnJava.dto;
+package com.jts.BpmnJava.user;
 
-import com.jts.BpmnJava.user.Role;
+import com.jts.BpmnJava.token.Token;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
 import java.util.List;
 
-@Getter
-@Setter
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @Entity
 @Table(name = "users")
 public class User implements UserDetails {
@@ -27,6 +28,8 @@ public class User implements UserDetails {
 
 	private String mobileNo;
 
+	private String email;
+
 	@Column(unique = true)
 	private String username;
 
@@ -41,6 +44,15 @@ public class User implements UserDetails {
 	@Override
 	public Collection<? extends GrantedAuthority> getAuthorities() {
 		return role.getAuthorities();
+	}
+	@Override
+	public String getPassword() {
+		return password;
+	}
+
+	@Override
+	public String getUsername() {
+		return email;
 	}
 
 	@Override

@@ -8,7 +8,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Component;
 
-import com.jts.BpmnJava.dto.User;
+import com.jts.BpmnJava.user.User;
 import com.jts.BpmnJava.repo.LoginRepository;
 
 @Component

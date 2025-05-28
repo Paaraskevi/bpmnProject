@@ -1,6 +1,5 @@
-package com.jts.BpmnJava.dto;
+package com.jts.BpmnJava.user;
 
-import com.jts.BpmnJava.user.Permission;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;

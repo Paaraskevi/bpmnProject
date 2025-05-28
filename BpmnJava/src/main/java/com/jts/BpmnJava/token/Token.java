@@ -1,4 +1,4 @@
-package com.jts.BpmnJava.dto;
+package com.jts.BpmnJava.token;
 
 import com.jts.BpmnJava.user.User;
 import jakarta.persistence.*;
@@ -12,23 +12,23 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
+@Table(name = "tokens")
 public class Token {
 
     @Id
-    @GeneratedValue
-    public Integer id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id;
 
-    @Column(unique = true)
-    public String token;
+    @Column(name = "token", length = 1000)
+    private String token;
 
-    @Enumerated(EnumType.STRING)
-    public TokenType tokenType = TokenType.BEARER;
+    @Column(name = "token_type")
+    private String tokenType = "BEARER";
 
-    public boolean revoked;
-
-    public boolean expired;
+    private boolean revoked;
+    private boolean expired;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
-    public User user;
+    private User users;
 }

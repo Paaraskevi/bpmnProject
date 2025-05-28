@@ -1,30 +1,25 @@
 package com.jts.BpmnJava.config;
 
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
-import java.util.stream.Collectors;
-
 import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
-
-import com.jts.BpmnJava.dto.User;
+import com.jts.BpmnJava.user.User;
 
 public class UserInfoUserDetails implements UserDetails {
 
 	private static final long serialVersionUID = -8773921465190832995L;
-	private String name;
+	private String username;
 	private String password;
-	private List<GrantedAuthority> authorities;
+	private Collection<? extends GrantedAuthority> authorities;
+	private boolean enabled = true;
+	private boolean accountNonExpired = true;
+	private boolean accountNonLocked = true;
+	private boolean credentialsNonExpired = true;
 
-	public UserInfoUserDetails(User userInfo) {
-		name = userInfo.getUsername();
-		password = userInfo.getPassword();
-
-		authorities = Arrays.stream("USER".split(","))
-				.map(SimpleGrantedAuthority::new)
-				.collect(Collectors.toList());
+	public UserInfoUserDetails(User user) {
+		this.username = user.getUsername();
+		this.password = user.getPassword();
+		this.authorities = user.getAuthorities(); // Use actual user authorities
 	}
 
 	@Override
@@ -39,7 +34,26 @@ public class UserInfoUserDetails implements UserDetails {
 
 	@Override
 	public String getUsername() {
-		return name;
+		return username;
 	}
 
+	@Override
+	public boolean isAccountNonExpired() {
+		return accountNonExpired;
+	}
+
+	@Override
+	public boolean isAccountNonLocked() {
+		return accountNonLocked;
+	}
+
+	@Override
+	public boolean isCredentialsNonExpired() {
+		return credentialsNonExpired;
+	}
+
+	@Override
+	public boolean isEnabled() {
+		return enabled;
+	}
 }

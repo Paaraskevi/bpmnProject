@@ -1,6 +1,6 @@
-package com.jts.BpmnJava.config;
+package com.jts.BpmnJava.secuirity;
 
-import com.jts.BpmnJava.secuirity.JwtAuthFilter;
+import com.jts.BpmnJava.config.UserInfoUserDetailsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
