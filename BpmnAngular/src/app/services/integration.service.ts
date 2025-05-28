@@ -15,15 +15,15 @@ export class IntegrationService {
 
   constructor(private http: HttpClient) { }
 
-  doLogin(request: LoginRequest):Observable<LoginResponse> {
-    return this.http.post<LoginResponse>(BASE_URL + "/doLogin", request);
-  }
+  // doLogin(request: LoginRequest):Observable<LoginResponse> {
+  //   return this.http.post<LoginResponse>(BASE_URL + "/doLogin", request);
+  // }
 
-  dashboard(): Observable<any> {
-    return this.http.get<any>(BASE_URL + "/dashboard");
-  }
+  // dashboard(): Observable<any> {
+  //   return this.http.get<any>(BASE_URL + "/dashboard");
+  // }
 
-  doRegister(request: SignupRequest):Observable<SignupResponse> {
-    return this.http.post<SignupResponse>(BASE_URL + "/doRegister", request);
-  }
+  // doRegister(request: SignupRequest):Observable<SignupResponse> {
+  //   return this.http.post<SignupResponse>(BASE_URL + "/register", request);
+  // }
 }

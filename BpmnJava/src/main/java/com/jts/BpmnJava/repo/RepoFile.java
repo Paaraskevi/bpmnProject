@@ -1,4 +1,4 @@
-package com.jts.BpmnJava.RepoFile;
+package com.jts.BpmnJava.repo;
 
 import com.jts.BpmnJava.model.File;
 import org.springframework.data.jpa.repository.JpaRepository;

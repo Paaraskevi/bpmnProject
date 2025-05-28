@@ -1,6 +1,6 @@
 package com.jts.BpmnJava.FileService;
 
-import com.jts.BpmnJava.RepoFile.RepoFile;
+import com.jts.BpmnJava.repo.RepoFile;
 import com.jts.BpmnJava.model.File;
 import org.springframework.stereotype.Service;
 

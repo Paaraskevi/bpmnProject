@@ -1,43 +1,30 @@
 package com.jts.BpmnJava.user;
 
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import jakarta.persistence.*;
 
-import java.util.Collections;
-import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
-import static com.jts.BpmnJava.user.Permission.*;
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@Entity
+public class Role {
 
-@Getter
-@RequiredArgsConstructor
-public enum Role {
-    USER(Collections.emptySet()),
-    ADMIN(Set.of(
-            ADMIN_READ,
-            ADMIN_UPDATE,
-            ADMIN_DELETE,
-            ADMIN_CREATE,
-            MANAGEMENT_READ,
-            MANAGEMENT_UPDATE,
-            MANAGEMENT_DELETE,
-            MANAGEMENT_CREATE
-    )),
-    MANAGER(Set.of(
-            MANAGEMENT_READ,
-            MANAGEMENT_UPDATE,
-            MANAGEMENT_DELETE,
-            MANAGEMENT_CREATE
-    ));
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-    private final Set<Permission> permission;
-    public List<SimpleGrantedAuthority>getAuthorities(){
-       var authorities =  getPermission().stream().map(permission1 -> new SimpleGrantedAuthority(permission1.name()))
-                .collect(Collectors.toList());
-       authorities.add(new SimpleGrantedAuthority("ROLE_"+this.name()));
-       return authorities;
+    @Enumerated(EnumType.STRING)
+    private RoleName name;
+
+    @ManyToMany(mappedBy = "roles")
+    private Set<User> users;
+
+    public Role(RoleName name) {
     }
-
 }

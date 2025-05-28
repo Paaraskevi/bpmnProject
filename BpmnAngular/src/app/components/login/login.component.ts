@@ -4,6 +4,7 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { Router, RouterLink } from '@angular/router';
 import { LocalStorageService } from '../../services/local-storage.service';
 import { CommonModule } from '@angular/common';
+import { AuthenticationService } from '../../services/authentication.service';
 
 @Component({
   selector: 'app-login',
@@ -14,7 +15,7 @@ import { CommonModule } from '@angular/common';
 })
 export class LoginComponent {
   constructor(
-    private integration: IntegrationService,
+    private authenticationService: AuthenticationService,
     private storage: LocalStorageService
   ) {}
 
@@ -42,7 +43,7 @@ export class LoginComponent {
       password: formValue.password
     };
 
-    this.integration.doLogin(request).subscribe({
+    this.authenticationService.login(request).subscribe({
       next: (res) => {
         this.storage.set('auth-key', res.token);
       },

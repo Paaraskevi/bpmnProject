@@ -44,7 +44,7 @@ public class LoginService {
 		User user = new User();
 		user.setAddress(request.getAddress());
 		user.setMobileNo(request.getMobileno());
-		user.setName(request.getName());
+		user.setFirstName(request.getFirstName());
 		user.setUsername(request.getUsername());
 		user.setPassword(passwordEncoder.encode(request.getPassword()));
 		
