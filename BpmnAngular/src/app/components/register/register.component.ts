@@ -5,6 +5,7 @@ import { IntegrationService } from '../../services/integration.service';
 import { LocalStorageService } from '../../services/local-storage.service';
 import { SignupRequest } from '../../models/signup-request';
 import { CommonModule } from '@angular/common';
+import { AuthenticationService } from '../../services/authentication.service';
 
 @Component({
   selector: 'app-register',
@@ -15,7 +16,7 @@ import { CommonModule } from '@angular/common';
 })
 export class RegisterComponent {
 
-  constructor(private integrationService: IntegrationService, private storage: LocalStorageService) { }
+  constructor(private authenticationService: AuthenticationService, private storage: LocalStorageService) { }
 
   request: SignupRequest = new SignupRequest;
   msg: string | undefined;
@@ -44,11 +45,11 @@ export class RegisterComponent {
     if (this.signupForm.valid) {
       console.log("Form is valoid");
 
-      this.integrationService.doRegister(this.request).subscribe({
+      this.authenticationService.register(this.request).subscribe({
         next: (res) => {
-          console.log(res.response);
+          console.log(res);
 
-          this.msg = res.response;
+          this.msg = 'Registration successful!';
         }, error: (err) => {
           console.log("Error Received:", err);
         }
