@@ -1,10 +1,12 @@
-package com.jts.BpmnJava.dto;
+package com.jts.BpmnJava.auth;
 
-import lombok.Getter;
-import lombok.Setter;
+import com.jts.BpmnJava.user.Role;
+import lombok.*;
 
-@Getter
-@Setter
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class SignupRequest {
 
 	private String name;
@@ -18,5 +20,7 @@ public class SignupRequest {
 	private String mobileno;
 	
 	private String age;
+
+	private Role role = Role.USER;
 
 }
