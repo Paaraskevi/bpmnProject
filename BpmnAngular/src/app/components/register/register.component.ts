@@ -1,16 +1,14 @@
 import { Component } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { IntegrationService } from '../../services/integration.service';
 import { LocalStorageService } from '../../services/local-storage.service';
-import { SignupRequest } from '../../models/signup-request';
 import { CommonModule } from '@angular/common';
-import { AuthenticationService } from '../../services/authentication.service';
+import { AuthenticationService, RegisterRequest } from '../../services/authentication.service';
 
 @Component({
   selector: 'app-register',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink,CommonModule],
+  imports: [ReactiveFormsModule, RouterLink, CommonModule],
   templateUrl: './register.component.html',
   styleUrl: './register.component.css'
 })
@@ -18,44 +16,61 @@ export class RegisterComponent {
 
   constructor(private authenticationService: AuthenticationService, private storage: LocalStorageService) { }
 
-  request: SignupRequest = new SignupRequest;
   msg: string | undefined;
 
+  // Updated form to include email field
   signupForm: FormGroup = new FormGroup({
     name: new FormControl('', Validators.required),
+    lastname: new FormControl('', Validators.required),
     username: new FormControl('', [Validators.required]),
-    password: new FormControl('', [Validators.required]),
-    address: new FormControl('', [Validators.required]),
-    mobileno: new FormControl('', [Validators.required]),
-    age: new FormControl('', [Validators.required])
+    email: new FormControl('', [Validators.required, Validators.email]),
+    password: new FormControl('', [Validators.required, Validators.minLength(8)]),
+    address: new FormControl(''),
+    mobileno: new FormControl(''),
+    age: new FormControl('')
   })
 
   public onSubmit() {
+    if (!this.signupForm.valid) {
+      this.msg = 'Please fill in all required fields correctly.';
+      return;
+    }
+
     this.storage.remove('auth-key');
 
-    const formValue =  this.signupForm.value;
+    const formValue = this.signupForm.value;
 
-    this.request.name = formValue.name;
-    this.request.username = formValue.username;
-    this.request.password = formValue.password;
-    this.request.mobileno = formValue.mobileno;
-    this.request.address = formValue.address;
-    this.request.age = formValue.age;
+    // Map form fields to RegisterRequest
+    const request: RegisterRequest = {
+      firstName: formValue.name,
+      lastName: formValue.lastname,
+      username: formValue.username,
+      email: formValue.email,
+      password: formValue.password,
+      address: formValue.address,
+      mobileno: formValue.mobileno,
+      age: formValue.age,
+      roleNames: ['ROLE_VIEWER'] // Default role
+    };
+console.log(request);
 
-    if (this.signupForm.valid) {
-      console.log("Form is valoid");
-
-      this.authenticationService.register(this.request).subscribe({
-        next: (res) => {
-          console.log(res);
-
-          this.msg = 'Registration successful!';
-        }, error: (err) => {
-          console.log("Error Received:", err);
+    this.authenticationService.register(request).subscribe({
+      next: (res) => {
+        console.log('Registration successful:', res);
+        this.msg = 'Registration successful!';
+        // Store the access token
+        this.storage.set('auth-key', res.access_token);
+      },
+      error: (err) => {
+        console.log("Registration error:", err);
+        if (err.error && err.error.message) {
+          this.msg = err.error.message;
+        } else if (err.message) {
+          this.msg = err.message;
+        } else {
+          this.msg = 'Registration failed. Please try again.';
         }
-      })
-    } else {
-      console.log("On submit failed.");
-    }
+      }
+    })
   }
 }
