@@ -1,0 +1,75 @@
+<div class="files-container">
+  <div class="header-section">
+    <h1>Your BPMN Files</h1>
+    <p>Manage and access your recent projects</p>
+  </div>
+
+  <!-- Loading state -->
+  <div *ngIf="!appFile || appFile.length === 0" class="empty-state">
+    <i data-feather="folder" class="empty-icon"></i>
+    <h3>No files found</h3>
+    <p>You haven't created any BPMN files yet. Start by creating a new diagram!</p>
+    <button class="btn-primary" (click)="navigateToModeler()">
+      <i data-feather="plus"></i>
+      Create New Diagram
+    </button>
+  </div>
+
+  <!-- Files grid -->
+  <div *ngIf="appFile && appFile.length > 0" class="files-grid">
+    <div *ngFor="let file of appFile" class="file-card">
+      <div class="file-header">
+        <div class="file-icon">
+          <i data-feather="file-text"></i>
+        </div>
+        <div class="file-actions">
+          <button class="action-btn edit-btn" (click)="openFile(file)" title="Open file">
+            <i data-feather="edit-3"></i>
+          </button>
+          <button class="action-btn delete-btn" (click)="deleteFile(file.id)" title="Delete file">
+            <i data-feather="trash-2"></i>
+          </button>
+        </div>
+      </div>
+      
+      <div class="file-content">
+        <h3 class="file-name">{{ file.fileName || 'Untitled' }}</h3>
+        <p class="file-description">{{ file.content }}</p>
+        
+        <div class="file-meta">
+          <span class="file-size" *ngIf="file.fileSize">
+            <i data-feather="hard-drive"></i>
+            {{ formatFileSize(file.fileSize) }}
+          </span>
+          <span class="file-date" *ngIf="file.uploadTime">
+            <i data-feather="calendar"></i>
+            {{ formatDate(file.uploadTime) }}
+          </span>
+          <span class="file-type" *ngIf="file.fileType">
+            <i data-feather="tag"></i>
+            {{ file.fileType }}
+          </span>
+        </div>
+      </div>
+      
+      <div class="file-footer">
+        <button class="btn-secondary" (click)="openFile(file)">
+          <i data-feather="eye"></i>
+          Open
+        </button>
+        <button class="btn-secondary" (click)="downloadFile(file)" *ngIf="file.content">
+          <i data-feather="download"></i>
+          Download
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Back to dashboard button -->
+  <div class="back-section">
+    <button class="btn-outline" (click)="navigateToDashboard()">
+      <i data-feather="arrow-left"></i>
+      Back to Dashboard
+    </button>
+  </div>
+</div>
