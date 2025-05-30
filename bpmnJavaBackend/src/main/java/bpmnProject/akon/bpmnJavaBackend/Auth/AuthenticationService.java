@@ -75,7 +75,29 @@ public class AuthenticationService {
                 .refreshToken(refreshToken)
                 .build();
     }
+    public AuthenticationResponse authenticate(LoginRequest request) {
+        authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                        request.getUsername(),
+                        request.getPassword()
+                )
+        );
 
+        var user = repository.findByEmail(request.getUsername())
+                .orElseThrow();
+
+        var jwtToken = jwtService.generateToken(user);
+        var refreshToken = jwtService.generateRefreshToken(user);
+        revokeAllUserTokens(user);
+        saveUserToken(user, jwtToken);
+
+        return AuthenticationResponse.builder()
+                .accessToken(jwtToken)
+                .refreshToken(refreshToken)
+                .user(user)
+                .expiresIn(jwtService.extractExpiration(jwtToken).getTime())
+                .build();
+    }
     @Transactional
     public AuthenticationResponse authenticate(AuthenticationRequest request) {
         authenticationManager.authenticate(

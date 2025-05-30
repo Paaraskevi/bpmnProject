@@ -21,7 +21,7 @@ export interface Role {
 }
 
 export interface LoginRequest {
-  username: string;
+  email: string;
   password: string;
 }
 
@@ -54,7 +54,7 @@ export interface RegisterRequest {
   providedIn: 'root'
 })
 export class AuthenticationService {
-   private readonly API_URL = 'http://localhost:8080/api/auth';
+  private readonly API_URL = 'http://localhost:8080/api/v1/auth';
   private readonly TOKEN_KEY = 'accessToken';
   private readonly USER_KEY = 'currentUser';
 
@@ -89,7 +89,7 @@ export class AuthenticationService {
 
   // Authentication Methods
   login(credentials: LoginRequest): Observable<AuthenticationResponse> {
-    return this.http.post<AuthenticationResponse>(`${this.API_URL}/signin`, credentials)
+    return this.http.post<AuthenticationResponse>(`${this.API_URL}/login`, credentials)
       .pipe(
         map(response => {
           if (response.token) {
@@ -102,7 +102,7 @@ export class AuthenticationService {
   }
 
   register(userData: RegisterRequest): Observable<any> {
-    return this.http.post(`${this.API_URL}/signup`, userData)
+    return this.http.post(`${this.API_URL}/register`, userData)
       .pipe(catchError(this.handleError));
   }
 
@@ -113,7 +113,7 @@ export class AuthenticationService {
 
   refreshToken(): Observable<AuthenticationResponse> {
     const refreshToken = localStorage.getItem('refreshToken');
-    return this.http.post<AuthenticationResponse>(`${this.API_URL}/refreshtoken`, {
+    return this.http.post<AuthenticationResponse>(`${this.API_URL}/refresh-token`, {
       refreshToken: refreshToken
     }).pipe(
       map(response => {
@@ -134,7 +134,7 @@ export class AuthenticationService {
     if (typeof window !== 'undefined') {
       localStorage.setItem(this.TOKEN_KEY, authResult.token);
       localStorage.setItem(this.USER_KEY, JSON.stringify(authResult.user));
-      
+
       this.tokenSubject.next(authResult.token);
       this.currentUserSubject.next(authResult.user);
     }
@@ -146,7 +146,7 @@ export class AuthenticationService {
       localStorage.removeItem(this.USER_KEY);
       localStorage.removeItem('refreshToken');
     }
-    
+
     this.tokenSubject.next(null);
     this.currentUserSubject.next(null);
   }
@@ -199,8 +199,8 @@ export class AuthenticationService {
   hasRole(roleName: string): boolean {
     const user = this.getCurrentUser();
     if (!user || !user.roles) return false;
-    
-    return user.roles.some(role => 
+
+    return user.roles.some(role =>
       role.name === roleName || role.name === `ROLE_${roleName.toUpperCase()}`
     );
   }
@@ -215,13 +215,13 @@ export class AuthenticationService {
 
   // Permission Methods
   canEdit(): boolean {
-    return this.hasAnyRole(['MODELER', 'ADMIN']) || 
-           this.hasAnyRole(['ROLE_MODELER', 'ROLE_ADMIN']);
+    return this.hasAnyRole(['MODELER', 'ADMIN']) ||
+      this.hasAnyRole(['ROLE_MODELER', 'ROLE_ADMIN']);
   }
 
   canView(): boolean {
-    return this.hasAnyRole(['VIEWER', 'MODELER', 'ADMIN']) || 
-           this.hasAnyRole(['ROLE_VIEWER', 'ROLE_MODELER', 'ROLE_ADMIN']);
+    return this.hasAnyRole(['VIEWER', 'MODELER', 'ADMIN']) ||
+      this.hasAnyRole(['ROLE_VIEWER', 'ROLE_MODELER', 'ROLE_ADMIN']);
   }
 
   isAdmin(): boolean {
@@ -272,7 +272,7 @@ export class AuthenticationService {
   }
 
   getUserRoleNames(): string[] {
-    return this.getUserRoles().map(role => 
+    return this.getUserRoles().map(role =>
       role.startsWith('ROLE_') ? role.substring(5) : role
     );
   }
@@ -280,7 +280,7 @@ export class AuthenticationService {
   // Error Handling
   private handleError(error: any): Observable<never> {
     let errorMessage = 'An error occurred';
-    
+
     if (error.error instanceof ErrorEvent) {
       // Client-side error
       errorMessage = error.error.message;
@@ -296,7 +296,7 @@ export class AuthenticationService {
         errorMessage = `Error Code: ${error.status}\nMessage: ${error.message}`;
       }
     }
-    
+
     return throwError(() => new Error(errorMessage));
   }
 
@@ -309,7 +309,7 @@ export class AuthenticationService {
     if (!expiration) return;
 
     const timeout = expiration - Date.now() - (5 * 60 * 1000); // Refresh 5 minutes before expiry
-    
+
     if (timeout > 0) {
       setTimeout(() => {
         this.refreshToken().subscribe({
