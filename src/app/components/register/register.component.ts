@@ -40,7 +40,6 @@ export class RegisterComponent {
 
     const formValue = this.signupForm.value;
 
-    // Map form fields to RegisterRequest
     const request: RegisterRequest = {
       firstName: formValue.firstName,
       lastName: formValue.lastName,
@@ -50,7 +49,7 @@ export class RegisterComponent {
       address: formValue.address,
       mobileno: formValue.mobileno,
       age: formValue.age,
-      roleNames: ['ROLE_VIEWER'] // Default role
+      roleNames: ['ROLE_VIEWER'] 
     };
 console.log(request);
 
@@ -59,7 +58,7 @@ console.log(request);
         console.log('Registration successful:', res);
         this.msg = 'Registration successful!';
         // Store the access token
-        this.storage.set('auth-key', res.access_token);
+        this.storage.set('auth-key', res.accessToken);
       },
       error: (err) => {
         console.log("Registration error:", err);
