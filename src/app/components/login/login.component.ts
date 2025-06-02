@@ -4,7 +4,7 @@ import { Router, RouterLink } from '@angular/router';
 import { LocalStorageService } from '../../services/local-storage.service';
 import { CommonModule } from '@angular/common';
 import { AuthenticationService } from '../../services/authentication.service';
-
+import { LoginRequest } from '../../services/authentication.service';
 @Component({
   selector: 'app-login',
   standalone: true,
@@ -19,6 +19,7 @@ export class LoginComponent {
   ) { }
 
   router = inject(Router);
+  request: LoginRequest = { username: '', password: '' }
 
   userForm: FormGroup = new FormGroup({
     username: new FormControl('', Validators.required),
@@ -27,39 +28,30 @@ export class LoginComponent {
   });
 
   login() {
+
     this.storage.remove('auth-key');
+    
+    const formValue =  this.userForm.value;
 
-    const formValue = this.userForm.value;
-
-    if (this.userForm.invalid) {
-      this.userForm.markAllAsTouched();
-      alert('Please fill in all fields correctly.');
+    if(formValue.username == '' || formValue.password == '') {
+      alert('Wrong Credentilas');
       return;
     }
 
-    const request = {
-      username: formValue.username,
-      password: formValue.password
-    };
+;
+    this.request.username = formValue.username;
+    this.request.password = formValue.password;
 
-    this.authenticationService.login(request).subscribe({
-      next: (res) => {
-        this.setSession(res);
+    this.authenticationService.login(this.request).subscribe({
+      next:(res) => {
+        console.log("Received Response:"+res.accessToken);
         this.router.navigate(['/dashboard']);
-      },
-      error: () => {
+        this.storage.set('auth-key', res.accessToken);
+
+      }, error: (err:any) => {
+        console.log("Error Received Response:"+err);
         this.storage.remove('auth-key');
-        alert('Login failed. Please check your credentials.');
       }
     });
   }
-  private setSession(response: any): void {
-  const expiresAt = Date.now() + response.expiresIn * 1000; 
-
-  this.storage.set('auth-key', response.accessToken);  
-  this.storage.set('refresh-token', response.refreshToken);  
-  this.storage.set('user', JSON.stringify(response.user));
-  this.storage.set('expires-at', expiresAt.toString());
-}
-
 }

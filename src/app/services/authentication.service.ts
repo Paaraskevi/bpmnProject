@@ -90,17 +90,8 @@ export class AuthenticationService {
   }
 
   // Authentication Methods
-  login(credentials: LoginRequest): Observable<AuthenticationResponse> {
-    return this.http.post<AuthenticationResponse>(`${this.API_URL}/login`, credentials)
-      .pipe(
-        map(response => {
-          if (response.token) {
-            this.setSession(response);
-          }
-          return response;
-        }),
-        catchError(this.handleError)
-      );
+ login(credentials: any): Observable<any> {
+    return this.http.post(`${this.API_URL}/login`, credentials, { responseType: 'text' });
   }
 
   register(userData: RegisterRequest): Observable<any> {
