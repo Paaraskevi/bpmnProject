@@ -23,12 +23,11 @@ public class AuthenticationController {
         this.service = service;
     }
 
-    @PostMapping("/login")
+    @PostMapping(value = "/login", produces = MediaType.APPLICATION_JSON_VALUE)
+
     public ResponseEntity<AuthenticationResponse> login(@RequestBody LoginRequest request) {
         AuthenticationResponse response = service.authenticate(request);
-        return ResponseEntity.ok()
-                .contentType(MediaType.APPLICATION_JSON) // Ensure Content-Type
-                .body(response);
+        return ResponseEntity.ok(response);
     }
 
 

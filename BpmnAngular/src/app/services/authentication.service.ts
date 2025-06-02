@@ -32,8 +32,8 @@ export interface LoginResponse {
 }
 
 export interface AuthenticationResponse {
-  accessToken: string;
-  refreshToken: string;
+  accessToken:string;
+  refreshToken:string;
   token: string;
   type: string;
   user: User;
@@ -90,31 +90,15 @@ export class AuthenticationService {
   }
 
   // Authentication Methods
-  login(credentials: LoginRequest): Observable<AuthenticationResponse> {
-    return this.http.post<AuthenticationResponse>(`${this.API_URL}/login`, credentials, {
-      responseType: 'json'
-    }).pipe(
-      tap(response => {
-        if (response.token) {
-          this.setSession(response);
-        }
-      }),
-      catchError(error => this.handleError(error))
-    );
+ login(credentials: any): Observable<any> {
+    return this.http.post(`${this.API_URL}/login`, credentials, { responseType: 'text' });
   }
-
 
   register(userData: RegisterRequest): Observable<any> {
-    console.log('Sending registration data:', userData);
-    return this.http.post<any>(`${this.API_URL}/register`, userData)
-      .pipe(
-        tap(response => console.log('Registration response:', response)),
-        catchError(error => {
-          console.error('Registration error:', error);
-          return this.handleError(error);
-        })
-      );
+    return this.http.post(`${this.API_URL}/register`, JSON.stringify(userData))
+      .pipe(catchError(this.handleError));
   }
+
   logout(): void {
     this.clearSession();
     this.router.navigate(['/login']);

@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.security.Principal;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -28,8 +29,17 @@ public class UserService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        return userRepository.findByEmail(username)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+        Optional<User> user = userRepository.findByUsername(username);
+        if (user.isPresent()) {
+            var userObj = user.get();
+            return User.builder()
+                    .username(userObj.getUsername())
+                    .password(userObj.getPassword())
+                    .build();
+        }else{
+            throw new UsernameNotFoundException(username);
+        }
     }
 
     public void changePassword(ChangePasswordRequest request, Principal connectedUser) {
