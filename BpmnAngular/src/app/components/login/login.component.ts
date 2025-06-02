@@ -44,22 +44,62 @@ export class LoginComponent {
 
     this.authenticationService.login(request).subscribe({
       next: (res) => {
+        console.log('Login response:', res); 
         this.setSession(res);
         this.router.navigate(['/dashboard']);
       },
-      error: () => {
+      error: (error) => {
+        console.error('Login error:', error);
         this.storage.remove('auth-key');
-        alert('Login failed. Please check your credentials.');
+
+        let errorMessage = 'Login failed. Please check your credentials.';
+        if (error.error && error.error.message) {
+          errorMessage = error.error.message;
+        } else if (error.status === 401) {
+          errorMessage = 'Invalid username or password.';
+        } else if (error.status === 500) {
+          errorMessage = 'Server error. Please try again later.';
+        }
+        
+        alert(errorMessage);
       }
     });
   }
+
   private setSession(response: any): void {
-  const expiresAt = Date.now() + response.expiresIn * 1000; 
+    console.log('Setting session with response:', response); 
+  
+    if (!response.accessToken) {
+      console.error('No access token in response');
+      alert('Login failed: Invalid response from server');
+      return;
+    }
+    let expiresAt: number;
+    if (response.expiresIn) {
+      if (response.expiresIn < 1000000000000) {
+        // Seems to be seconds (duration), convert to timestamp
+        expiresAt = Date.now() + (response.expiresIn * 1000);
+      } else {
 
-  this.storage.set('auth-key', response.accessToken);  
-  this.storage.set('refresh-token', response.refreshToken);  
-  this.storage.set('user', JSON.stringify(response.user));
-  this.storage.set('expires-at', expiresAt.toString());
-}
+        expiresAt = response.expiresIn;
+      }
+    } else {
+  
+      expiresAt = Date.now() + (60 * 60 * 1000);
+    }
 
+    this.storage.set('auth-key', response.accessToken);  
+    
+    if (response.refreshToken) {
+      this.storage.set('refresh-token', response.refreshToken);  
+    }
+    
+    if (response.user) {
+      this.storage.set('user', JSON.stringify(response.user));
+    }
+    
+    this.storage.set('expires-at', expiresAt.toString());
+    
+    console.log('Session set successfully'); 
+  }
 }

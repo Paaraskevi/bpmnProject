@@ -4,7 +4,6 @@ import bpmnProject.akon.bpmnJavaBackend.Config.JwtService;
 import bpmnProject.akon.bpmnJavaBackend.Token.Token;
 import bpmnProject.akon.bpmnJavaBackend.Token.TokenRepository;
 import bpmnProject.akon.bpmnJavaBackend.Token.TokenType;
-import bpmnProject.akon.bpmnJavaBackend.User.Role;
 import bpmnProject.akon.bpmnJavaBackend.User.RoleRepository;
 import bpmnProject.akon.bpmnJavaBackend.User.User;
 import bpmnProject.akon.bpmnJavaBackend.User.UserRepository;
@@ -21,10 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -48,21 +44,21 @@ public class AuthenticationService {
         if (request.getUsername() != null && repository.findByUsername(request.getUsername()).isPresent()) {
             throw new RuntimeException("Username " + request.getUsername() + " already exists");
         }
-        // Get roles from role names
-        Set<Role> roles = new HashSet<>();
-        if (request.getRoleNames() != null && !request.getRoleNames().isEmpty()) {
-            // Create a copy of the role names to avoid concurrent modification
-            List<String> roleNamesList = new ArrayList<>(request.getRoleNames());
-            roles = roleNamesList.stream()
-                    .map(roleName -> roleRepository.findByName(roleName)
-                            .orElseThrow(() -> new RuntimeException("Role not found: " + roleName))) // This throws the error
-                    .collect(Collectors.toSet());
-        } else {
-            // Default role if none specified
-            Role viewerRole = roleRepository.findByName(Role.ROLE_VIEWER)
-                    .orElseThrow(() -> new RuntimeException("Default role not found"));
-            roles.add(viewerRole);
-        }
+//        // Get roles from role names
+//        Set<Role> roles = new HashSet<>();
+//        if (request.getRoleNames() != null && !request.getRoleNames().isEmpty()) {
+//            // Create a copy of the role names to avoid concurrent modification
+//            List<String> roleNamesList = new ArrayList<>(request.getRoleNames());
+//            roles = roleNamesList.stream()
+//                    .map(roleName -> roleRepository.findByName(roleName)
+//                            .orElseThrow(() -> new RuntimeException("Role not found: " + roleName))) // This throws the error
+//                    .collect(Collectors.toSet());
+//        } else {
+//            // Default role if none specified
+//            Role viewerRole = roleRepository.findByName(Role.ROLE_VIEWER)
+//                    .orElseThrow(() -> new RuntimeException("Default role not found"));
+//            roles.add(viewerRole);
+//        }
 
         var user = User.builder()
                 .firstname(request.getFirstName())
@@ -70,11 +66,8 @@ public class AuthenticationService {
                 .username(request.getUsername())
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .roles(new HashSet<>())
                 .tokens(new ArrayList<>())
                 .build();
-
-        user.setRoles(roles);
 
         var savedUser = repository.save(user);
         var jwtToken = jwtService.generateToken(user);
@@ -86,29 +79,38 @@ public class AuthenticationService {
                 .refreshToken(refreshToken)
                 .build();
     }
+
     public AuthenticationResponse authenticate(LoginRequest request) {
-        authenticationManager.authenticate(
+        System.out.println("Trying to authenticate user: " + request.getUsername());
+
+
+      var auth =  authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
-                        request.getUserName(),
+                        request.getUsername(),
                         request.getPassword()
                 )
         );
+        System.out.println("Login request username: [" + request.getUsername() + "]");
 
-        var user = repository.findByUsername(request.getUserName())
-                .orElseThrow();
-
+        var user = (User)auth.getPrincipal();
         var jwtToken = jwtService.generateToken(user);
         var refreshToken = jwtService.generateRefreshToken(user);
         revokeAllUserTokens(user);
         saveUserToken(user, jwtToken);
 
+        // Calculate expiresIn as seconds from now (not full timestamp)
+        long expirationTime = jwtService.extractExpiration(jwtToken).getTime();
+        long currentTime = System.currentTimeMillis();
+        long expiresInSeconds = (expirationTime - currentTime) / 1000;
+
         return AuthenticationResponse.builder()
                 .accessToken(jwtToken)
                 .refreshToken(refreshToken)
                 .user(user)
-                .expiresIn(jwtService.extractExpiration(jwtToken).getTime())
+                .expiresIn(expiresInSeconds)
                 .build();
     }
+
     @Transactional
     public AuthenticationResponse authenticate(AuthenticationRequest request) {
         authenticationManager.authenticate(
@@ -123,12 +125,19 @@ public class AuthenticationService {
         var refreshToken = jwtService.generateRefreshToken(user);
         revokeAllUserTokens(user);
         saveUserToken(user, jwtToken);
+
+        // Calculate expiresIn as seconds from now
+        long expirationTime = jwtService.extractExpiration(jwtToken).getTime();
+        long currentTime = System.currentTimeMillis();
+        long expiresInSeconds = (expirationTime - currentTime) / 1000;
+
         return AuthenticationResponse.builder()
                 .accessToken(jwtToken)
                 .refreshToken(refreshToken)
+                .user(user)
+                .expiresIn(expiresInSeconds)
                 .build();
     }
-
     private void saveUserToken(User user, String jwtToken) {
         var token = Token.builder()
                 .user(user)
@@ -139,6 +148,7 @@ public class AuthenticationService {
                 .build();
         tokenRepository.save(token);
     }
+
 
     @Transactional
     private void revokeAllUserTokens(User user) {
