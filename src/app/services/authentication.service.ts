@@ -21,7 +21,7 @@ export interface Role {
 }
 
 export interface LoginRequest {
-  email: string;
+  username: string;
   password: string;
 }
 
@@ -32,6 +32,8 @@ export interface LoginResponse {
 }
 
 export interface AuthenticationResponse {
+  accessToken:string;
+  refreshToken:string;
   token: string;
   type: string;
   user: User;
@@ -102,7 +104,7 @@ export class AuthenticationService {
   }
 
   register(userData: RegisterRequest): Observable<any> {
-    return this.http.post(`${this.API_URL}/register`, userData)
+    return this.http.post(`${this.API_URL}/register`, JSON.stringify(userData))
       .pipe(catchError(this.handleError));
   }
 
