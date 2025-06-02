@@ -13,8 +13,8 @@ import java.util.Set;
 @AllArgsConstructor
 public class UserDto {
     private Integer id;
-    private String firstname;
-    private String lastname;
+    private String firstName;
+    private String lastName;
     private String email;
     private Set<RoleDto> roles;
 }

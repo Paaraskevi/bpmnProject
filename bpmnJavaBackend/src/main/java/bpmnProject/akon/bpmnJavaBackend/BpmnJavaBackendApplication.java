@@ -4,6 +4,7 @@ import bpmnProject.akon.bpmnJavaBackend.Auth.AuthenticationService;
 import bpmnProject.akon.bpmnJavaBackend.Auth.RegisterRequest;
 import bpmnProject.akon.bpmnJavaBackend.User.Role;
 import bpmnProject.akon.bpmnJavaBackend.User.RoleRepository;
+import bpmnProject.akon.bpmnJavaBackend.User.UserRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -20,44 +21,57 @@ public class BpmnJavaBackendApplication {
 		SpringApplication.run(BpmnJavaBackendApplication.class, args);
 	}
 
-//	@Bean
-//	public CommandLineRunner commandLineRunner(
-/*			AuthenticationService authService,
-			RoleRepository roleRepository
+	@Bean
+	public CommandLineRunner commandLineRunner(
+			AuthenticationService authService,
+			RoleRepository roleRepository,
+			UserRepository userRepository // Add UserRepository
 	) {
 		return args -> {
 			// Initialize roles if they don't exist
 			initializeRoles(roleRepository);
 
-			// Create admin user
-			var admin = RegisterRequest.builder()
-					.firstname("Admin")
-					.lastname("User")
-					.email("admin@mail.com")
-					.password("password")
-					.roleNames(Set.of(Role.ROLE_ADMIN))
-					.build();
-			System.out.println("Admin token: " + authService.register(admin).getAccessToken());
+			// Create admin user only if it doesn't exist
+			if (!userRepository.findByEmail("admin@mail.com").isPresent()) {
+				var admin = RegisterRequest.builder()
+						.firstName("Admin")
+						.lastName("User")
+						.email("admin@mail.com")
+						.password("password")
+						.roleNames(Set.of(Role.ROLE_ADMIN))
+						.build();
+				System.out.println("Admin token: " + authService.register(admin).getAccessToken());
+			} else {
+				System.out.println("Admin user already exists");
+			}
 
-			// Create modeler user
-			var modeler = RegisterRequest.builder()
-					.firstname("Modeler")
-					.lastname("User")
-					.email("modeler@mail.com")
-					.password("password")
-					.roleNames(Set.of(Role.ROLE_MODELER))
-					.build();
-			System.out.println("Modeler token: " + authService.register(modeler).getAccessToken());
+			// Create modeler user only if it doesn't exist
+			if (!userRepository.findByEmail("modeler@mail.com").isPresent()) {
+				var modeler = RegisterRequest.builder()
+						.firstName("Modeler")
+						.lastName("User")
+						.email("modeler@mail.com")
+						.password("password")
+						.roleNames(Set.of(Role.ROLE_MODELER))
+						.build();
+				System.out.println("Modeler token: " + authService.register(modeler).getAccessToken());
+			} else {
+				System.out.println("Modeler user already exists");
+			}
 
-			// Create viewer user
-			var viewer = RegisterRequest.builder()
-					.firstname("Viewer")
-					.lastname("User")
-					.email("viewer@mail.com")
-					.password("password")
-					.roleNames(Set.of(Role.ROLE_VIEWER))
-					.build();
-			System.out.println("Viewer token: " + authService.register(viewer).getAccessToken());
+			// Create viewer user only if it doesn't exist
+			if (!userRepository.findByEmail("viewer@mail.com").isPresent()) {
+				var viewer = RegisterRequest.builder()
+						.firstName("Viewer")
+						.lastName("User")
+						.email("viewer@mail.com")
+						.password("password")
+						.roleNames(Set.of(Role.ROLE_VIEWER))
+						.build();
+				System.out.println("Viewer token: " + authService.register(viewer).getAccessToken());
+			} else {
+				System.out.println("Viewer user already exists");
+			}
 		};
 	}
 
@@ -88,5 +102,5 @@ public class BpmnJavaBackendApplication {
 					.build();
 			roleRepository.save(viewerRole);
 		}
-	}*/
+	}
 }

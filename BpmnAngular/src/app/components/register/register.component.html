@@ -11,14 +11,14 @@
 
   <form class="form-group" [formGroup]="signupForm" (ngSubmit)="onSubmit()">
     <!-- First Name -->
-    <input type="text" name="name" placeholder="First Name" formControlName="name" />
-    <div class="text-danger" *ngIf="signupForm.controls['name'].touched && signupForm.controls['name'].hasError('required')">
+    <input type="text" name="firstName" placeholder="First Name" formControlName="firstName" />
+    <div class="text-danger" *ngIf="signupForm.controls['firstName'].touched && signupForm.controls['firstName'].hasError('required')">
       <span>First name is required</span>
     </div>
 
     <!-- Last Name -->
-    <input type="text" name="lastname" placeholder="Last Name" formControlName="lastname" />
-    <div class="text-danger" *ngIf="signupForm.controls['lastname'].touched && signupForm.controls['lastname'].hasError('required')">
+    <input type="text" name="lastName" placeholder="Last Name" formControlName="lastName" />
+    <div class="text-danger" *ngIf="signupForm.controls['lastName'].touched && signupForm.controls['lastName'].hasError('required')">
       <span>Last name is required</span>
     </div>
 

@@ -38,6 +38,15 @@ public class AuthenticationService {
 
     @Transactional
     public AuthenticationResponse register(RegisterRequest request) {
+            // Check if user already exists
+            if (repository.findByEmail(request.getEmail()).isPresent()) {
+                throw new RuntimeException("User with email " + request.getEmail() + " already exists");
+            }
+
+            // Check if username already exists (if you have this method)
+            if (repository.findByUsername(request.getUsername()).isPresent()) {
+                throw new RuntimeException("Username " + request.getUsername() + " already exists");
+            }
         // Get roles from role names
         Set<Role> roles = new HashSet<>();
         if (request.getRoleNames() != null && !request.getRoleNames().isEmpty()) {
@@ -45,7 +54,7 @@ public class AuthenticationService {
             List<String> roleNamesList = new ArrayList<>(request.getRoleNames());
             roles = roleNamesList.stream()
                     .map(roleName -> roleRepository.findByName(roleName)
-                            .orElseThrow(() -> new RuntimeException("Role not found: " + roleName)))
+                            .orElseThrow(() -> new RuntimeException("Role not found: " + roleName))) // This throws the error
                     .collect(Collectors.toSet());
         } else {
             // Default role if none specified
@@ -60,8 +69,8 @@ public class AuthenticationService {
                 .username(request.getUsername())
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .roles(new HashSet<>()) // Initialize with empty set
-                .tokens(new ArrayList<>()) // Initialize with empty list
+                .roles(new HashSet<>())
+                .tokens(new ArrayList<>())
                 .build();
 
         user.setRoles(roles);

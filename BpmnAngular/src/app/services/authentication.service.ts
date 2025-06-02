@@ -153,10 +153,7 @@ export class AuthenticationService {
 
   // Token Methods
   getToken(): string | null {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem(this.TOKEN_KEY);
-    }
-    return null;
+    return localStorage.getItem('auth-key');
   }
 
   isLoggedIn(): boolean {
