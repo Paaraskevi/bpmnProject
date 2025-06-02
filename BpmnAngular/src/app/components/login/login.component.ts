@@ -44,9 +44,10 @@ export class LoginComponent {
 
     this.authenticationService.login(this.request).subscribe({
       next:(res) => {
-        console.log("Received Response:"+res.accessToken);
+        console.log(res);
+        console.log("Received Response:"+res.access_token);
         this.router.navigate(['/dashboard']);
-        this.storage.set('auth-key', res.accessToken);
+        this.storage.set('auth-key', res.access_token);
 
       }, error: (err:any) => {
         console.log("Error Received Response:"+err);

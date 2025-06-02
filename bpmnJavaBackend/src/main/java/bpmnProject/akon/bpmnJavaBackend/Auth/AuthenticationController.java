@@ -1,11 +1,14 @@
 package bpmnProject.akon.bpmnJavaBackend.Auth;
 
+import bpmnProject.akon.bpmnJavaBackend.User.User;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
@@ -44,11 +47,16 @@ public class AuthenticationController {
         return ResponseEntity.ok(service.authenticate(request));
     }
 
-    @PostMapping("/refresh-token")
-    public void refreshToken(
-            HttpServletRequest request,
-            HttpServletResponse response
-    ) throws IOException {
-        service.refreshToken(request, response);
+    @RequestMapping(method = RequestMethod.POST, path = "/user")
+    @PreAuthorize("hasRole('ROLE_Admin')")
+    public ResponseEntity<User> saveUser(@RequestBody User user) {
+
     }
+//    @PostMapping("/refresh-token")
+//    public void refreshToken(
+//            HttpServletRequest request,
+//            HttpServletResponse response
+//    ) throws IOException {
+//        service.refreshToken(request, response);
+//    }
 }
