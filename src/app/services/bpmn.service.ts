@@ -161,46 +161,46 @@ export class BpmnService {
     });
   }
 
-  // Permission check helpers
-  canEditDiagram(diagram: BpmnDiagram): boolean {
-    const user = this.authService.currentUser;
-    if (!user) return false;
+  // // Permission check helpers
+  // canEditDiagram(diagram: BpmnDiagram): boolean {
+  //   const user = this.authService.currentUser;
+  //   if (!user) return false;
     
-    // Admin can edit all diagrams
-    if (this.authService.isAdmin()) return true;
+  //   // Admin can edit all diagrams
+  //   if (this.authService.isAdmin()) return true;
     
-    // Modelers can edit their own diagrams
-    if (this.authService.isModeler() && diagram.createdBy === user.username) return true;
+  //   // Modelers can edit their own diagrams
+  //   if (this.authService.isModeler() && diagram.createdBy === user.username) return true;
     
-    return false;
-  }
+  //   return false;
+  // }
 
-  canViewDiagram(diagram: BpmnDiagram): boolean {
-    const user = this.authService.currentUser;
-    if (!user) return false;
+  // canViewDiagram(diagram: BpmnDiagram): boolean {
+  //   const user = this.authService.currentUser;
+  //   if (!user) return false;
     
-    // Everyone with view permission can see public diagrams
-    if (diagram.isPublic && this.authService.canView()) return true;
+  //   // Everyone with view permission can see public diagrams
+  //   if (diagram.isPublic && this.authService.canView()) return true;
     
-    // Admin can view all diagrams
-    if (this.authService.isAdmin()) return true;
+  //   // Admin can view all diagrams
+  //   if (this.authService.isAdmin()) return true;
     
-    // Users can view their own diagrams
-    if (diagram.createdBy === user.username) return true;
+  //   // Users can view their own diagrams
+  //   if (diagram.createdBy === user.username) return true;
     
-    return false;
-  }
+  //   return false;
+  // }
 
-  canDeleteDiagram(diagram: BpmnDiagram): boolean {
-    const user = this.authService.currentUser;
-    if (!user) return false;
+  // canDeleteDiagram(diagram: BpmnDiagram): boolean {
+  //   const user = this.authService.currentUser;
+  //   if (!user) return false;
     
-    // Only admin can delete diagrams
-    if (this.authService.isAdmin()) return true;
+  //   // Only admin can delete diagrams
+  //   if (this.authService.isAdmin()) return true;
     
-    // Modelers can delete their own diagrams
-    if (this.authService.isModeler() && diagram.createdBy === user.username) return true;
+  //   // Modelers can delete their own diagrams
+  //   if (this.authService.isModeler() && diagram.createdBy === user.username) return true;
     
-    return false;
-  }
+  //   return false;
+  // }
 }

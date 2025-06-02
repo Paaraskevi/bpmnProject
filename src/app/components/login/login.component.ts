@@ -9,7 +9,7 @@ import { AuthenticationService } from '../../services/authentication.service';
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink,CommonModule],
+  imports: [ReactiveFormsModule, RouterLink, CommonModule],
   templateUrl: './login.component.html',
   styleUrl: './login.component.css'
 })
@@ -17,7 +17,7 @@ export class LoginComponent {
   constructor(
     private authenticationService: AuthenticationService,
     private storage: LocalStorageService
-  ) {}
+  ) { }
 
   router = inject(Router);
 
@@ -39,18 +39,27 @@ export class LoginComponent {
     }
 
     const request = {
-      username: formValue.username,
+      email: formValue.username,
       password: formValue.password
     };
 
     this.authenticationService.login(request).subscribe({
       next: (res) => {
-        this.storage.set('auth-key', res.token);
+        this.setSession(res);
+        this.router.navigate(['/dashboard']);
       },
       error: () => {
         this.storage.remove('auth-key');
         alert('Login failed. Please check your credentials.');
       }
     });
+  } private setSession(response: any): void {
+    const expiresAt = Date.now() + response.expiresIn * 1000; 
+
+    this.storage.set('auth-key', response.access_token);
+    this.storage.set('refresh-token', response.refresh_token);
+    this.storage.set('user', JSON.stringify(response.user));
+    this.storage.set('expires-at', expiresAt.toString());
   }
+
 }

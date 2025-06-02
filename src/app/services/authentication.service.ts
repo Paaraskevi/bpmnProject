@@ -21,7 +21,7 @@ export interface Role {
 }
 
 export interface LoginRequest {
-  username: string;
+  email: string;
   password: string;
 }
 
@@ -32,8 +32,10 @@ export interface LoginResponse {
 }
 
 export interface AuthenticationResponse {
-  access_token: string;
-  refresh_token: string;
+  token: string;
+  type: string;
+  user: User;
+  expiresIn?: number;
 }
 
 export interface RegisterRequest {
@@ -52,130 +54,269 @@ export interface RegisterRequest {
   providedIn: 'root'
 })
 export class AuthenticationService {
-  // Fix: Point to your Spring Boot backend
-  private apiUrl = 'http://localhost:8080/api/v1';
-  private currentUserSubject = new BehaviorSubject<User | null>(null);
-  private tokenSubject = new BehaviorSubject<string | null>(null);
+  private readonly API_URL = 'http://localhost:8080/api/v1/auth';
+  private readonly TOKEN_KEY = 'accessToken';
+  private readonly USER_KEY = 'currentUser';
 
+  private currentUserSubject = new BehaviorSubject<User | null>(this.getUserFromStorage());
   public currentUser$ = this.currentUserSubject.asObservable();
+
+  private tokenSubject = new BehaviorSubject<string | null>(this.getToken());
   public token$ = this.tokenSubject.asObservable();
 
   constructor(
     private http: HttpClient,
     private router: Router
   ) {
-    this.loadStoredAuth();
+    // Check token validity on service initialization
+    this.checkTokenValidity();
   }
 
-  private loadStoredAuth(): void {
-    const token = localStorage.getItem('auth_token');
-    const userStr = localStorage.getItem('current_user');
+  private getUserFromStorage(): User | null {
+    if (typeof window !== 'undefined') {
+      const userData = localStorage.getItem(this.USER_KEY);
+      return userData ? JSON.parse(userData) : null;
+    }
+    return null;
+  }
 
-    if (token && userStr) {
-      try {
-        const user = JSON.parse(userStr);
-        this.tokenSubject.next(token);
-        this.currentUserSubject.next(user);
-      } catch (error) {
-        this.clearAuth();
-      }
+  private checkTokenValidity(): void {
+    const token = this.getToken();
+    if (token && this.isTokenExpired(token)) {
+      this.logout();
     }
   }
 
-  login(credentials: LoginRequest): Observable<LoginResponse> {
-    return this.http.post<LoginResponse>(`${this.apiUrl}/login`, credentials)
+  // Authentication Methods
+  login(credentials: LoginRequest): Observable<AuthenticationResponse> {
+    return this.http.post<AuthenticationResponse>(`${this.API_URL}/login`, credentials)
       .pipe(
-        tap((response: LoginResponse) => {
-          this.setAuth(response.token, response.user);
-        })
+        map(response => {
+          if (response.token) {
+            this.setSession(response);
+          }
+          return response;
+        }),
+        catchError(this.handleError)
       );
+  }
+
+  register(userData: RegisterRequest): Observable<any> {
+    return this.http.post(`${this.API_URL}/register`, userData)
+      .pipe(catchError(this.handleError));
   }
 
   logout(): void {
-    this.http.post(`${this.apiUrl}/logout`, {}).subscribe();
-    this.clearAuth();
+    this.clearSession();
     this.router.navigate(['/login']);
   }
 
-  // Fix: Updated register method to match your backend response
-  register(userData: RegisterRequest): Observable<AuthenticationResponse> {
-    return this.http.post<AuthenticationResponse>(`${this.apiUrl}/auth/register`, JSON.stringify(userData));
+  refreshToken(): Observable<AuthenticationResponse> {
+    const refreshToken = localStorage.getItem('refreshToken');
+    return this.http.post<AuthenticationResponse>(`${this.API_URL}/refresh-token`, {
+      refreshToken: refreshToken
+    }).pipe(
+      map(response => {
+        if (response.token) {
+          this.setSession(response);
+        }
+        return response;
+      }),
+      catchError(error => {
+        this.logout();
+        return throwError(() => error);
+      })
+    );
   }
 
-  refreshToken(): Observable<LoginResponse> {
-    return this.http.post<LoginResponse>(`${this.apiUrl}/refresh`, {})
-      .pipe(
-        tap(response => {
-          this.setAuth(response.token, response.user);
-        })
-      );
+  // Session Management
+  private setSession(authResult: AuthenticationResponse): void {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(this.TOKEN_KEY, authResult.token);
+      localStorage.setItem(this.USER_KEY, JSON.stringify(authResult.user));
+
+      this.tokenSubject.next(authResult.token);
+      this.currentUserSubject.next(authResult.user);
+    }
   }
 
-  private setAuth(token: string, user: User): void {
-    localStorage.setItem('auth_token', token);
-    localStorage.setItem('current_user', JSON.stringify(user));
-    this.tokenSubject.next(token);
-    this.currentUserSubject.next(user);
-  }
+  private clearSession(): void {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(this.TOKEN_KEY);
+      localStorage.removeItem(this.USER_KEY);
+      localStorage.removeItem('refreshToken');
+    }
 
-  private clearAuth(): void {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('current_user');
     this.tokenSubject.next(null);
     this.currentUserSubject.next(null);
   }
 
-  // Role-based access methods
-  get currentUser(): User | null {
+  // Token Methods
+  getToken(): string | null {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(this.TOKEN_KEY);
+    }
+    return null;
+  }
+
+  isLoggedIn(): boolean {
+    const token = this.getToken();
+    return token != null && !this.isTokenExpired(token);
+  }
+
+  private isTokenExpired(token: string): boolean {
+    try {
+      const expiry = this.getTokenExpiration(token);
+      return expiry ? expiry <= Date.now() : true;
+    } catch (error) {
+      return true;
+    }
+  }
+
+  private getTokenExpiration(token: string): number | null {
+    try {
+      const payload = this.getTokenPayload(token);
+      return payload.exp ? payload.exp * 1000 : null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  private getTokenPayload(token: string): any {
+    try {
+      const payload = token.split('.')[1];
+      return JSON.parse(atob(payload));
+    } catch (error) {
+      return null;
+    }
+  }
+
+  // User and Role Methods
+  getCurrentUser(): User | null {
     return this.currentUserSubject.value;
   }
 
-  get token(): string | null {
-    return this.tokenSubject.value;
-  }
-
-  isAuthenticated(): boolean {
-    return !!this.token && !!this.currentUser;
-  }
-
   hasRole(roleName: string): boolean {
-    const user = this.currentUser;
-    return user?.roles?.some(role => role.name === roleName) || false;
+    const user = this.getCurrentUser();
+    if (!user || !user.roles) return false;
+
+    return user.roles.some(role =>
+      role.name === roleName || role.name === `ROLE_${roleName.toUpperCase()}`
+    );
   }
 
   hasAnyRole(roleNames: string[]): boolean {
     return roleNames.some(role => this.hasRole(role));
   }
 
-  isAdmin(): boolean {
-    return this.hasRole('ROLE_ADMIN');
+  hasAllRoles(roleNames: string[]): boolean {
+    return roleNames.every(role => this.hasRole(role));
   }
 
-  isModeler(): boolean {
-    return this.hasRole('ROLE_MODELER');
-  }
-
-  isViewer(): boolean {
-    return this.hasRole('ROLE_VIEWER');
-  }
-
+  // Permission Methods
   canEdit(): boolean {
-    return this.isAdmin() || this.isModeler();
+    return this.hasAnyRole(['MODELER', 'ADMIN']) ||
+      this.hasAnyRole(['ROLE_MODELER', 'ROLE_ADMIN']);
   }
 
   canView(): boolean {
-    return this.isAdmin() || this.isModeler() || this.isViewer();
+    return this.hasAnyRole(['VIEWER', 'MODELER', 'ADMIN']) ||
+      this.hasAnyRole(['ROLE_VIEWER', 'ROLE_MODELER', 'ROLE_ADMIN']);
   }
 
-  canManageUsers(): boolean {
-    return this.isAdmin();
+  isAdmin(): boolean {
+    return this.hasRole('ADMIN') || this.hasRole('ROLE_ADMIN');
   }
 
+  isModeler(): boolean {
+    return this.hasRole('MODELER') || this.hasRole('ROLE_MODELER');
+  }
+
+  isViewer(): boolean {
+    return this.hasRole('VIEWER') || this.hasRole('ROLE_VIEWER');
+  }
+
+  // User Profile Methods
+  updateCurrentUser(): Observable<User> {
+    return this.http.get<User>(`${this.API_URL}/user`, {
+      headers: this.getAuthHeaders()
+    }).pipe(
+      map(user => {
+        this.setCurrentUser(user);
+        return user;
+      }),
+      catchError(this.handleError)
+    );
+  }
+
+  private setCurrentUser(user: User): void {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(this.USER_KEY, JSON.stringify(user));
+    }
+    this.currentUserSubject.next(user);
+  }
+
+  // HTTP Headers
   getAuthHeaders(): HttpHeaders {
-    const token = this.token;
+    const token = this.getToken();
     return new HttpHeaders({
-      'Authorization': token ? `Bearer ${token}` : '',
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      'Authorization': token ? `Bearer ${token}` : ''
     });
+  }
+
+  // Utility Methods
+  getUserRoles(): string[] {
+    const user = this.getCurrentUser();
+    return user?.roles?.map(role => role.name) || [];
+  }
+
+  getUserRoleNames(): string[] {
+    return this.getUserRoles().map(role =>
+      role.startsWith('ROLE_') ? role.substring(5) : role
+    );
+  }
+
+  // Error Handling
+  private handleError(error: any): Observable<never> {
+    let errorMessage = 'An error occurred';
+
+    if (error.error instanceof ErrorEvent) {
+      // Client-side error
+      errorMessage = error.error.message;
+    } else {
+      // Server-side error
+      if (error.status === 401) {
+        errorMessage = 'Invalid credentials';
+      } else if (error.status === 403) {
+        errorMessage = 'Access denied';
+      } else if (error.error?.message) {
+        errorMessage = error.error.message;
+      } else {
+        errorMessage = `Error Code: ${error.status}\nMessage: ${error.message}`;
+      }
+    }
+
+    return throwError(() => new Error(errorMessage));
+  }
+
+  // Token Auto-Refresh (Optional)
+  startTokenRefreshTimer(): void {
+    const token = this.getToken();
+    if (!token) return;
+
+    const expiration = this.getTokenExpiration(token);
+    if (!expiration) return;
+
+    const timeout = expiration - Date.now() - (5 * 60 * 1000); // Refresh 5 minutes before expiry
+
+    if (timeout > 0) {
+      setTimeout(() => {
+        this.refreshToken().subscribe({
+          next: () => this.startTokenRefreshTimer(),
+          error: () => this.logout()
+        });
+      }, timeout);
+    }
   }
 }
