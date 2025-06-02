@@ -20,8 +20,8 @@ export class RegisterComponent {
 
   // Updated form to include email field
   signupForm: FormGroup = new FormGroup({
-    firstname: new FormControl('', Validators.required),
-    lastname: new FormControl('', Validators.required),
+    firstName: new FormControl('', Validators.required),
+    lastName: new FormControl('', Validators.required),
     username: new FormControl('', [Validators.required]),
     email: new FormControl('', [Validators.required, Validators.email]),
     password: new FormControl('', [Validators.required, Validators.minLength(8)]),
@@ -42,8 +42,8 @@ export class RegisterComponent {
 
     // Map form fields to RegisterRequest
     const request: RegisterRequest = {
-      firstName: formValue.name,
-      lastName: formValue.lastname,
+      firstName: formValue.firstName,
+      lastName: formValue.lastName,
       username: formValue.username,
       email: formValue.email,
       password: formValue.password,
