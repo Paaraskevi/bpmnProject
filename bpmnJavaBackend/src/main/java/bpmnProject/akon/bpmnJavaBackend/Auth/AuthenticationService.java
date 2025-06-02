@@ -44,9 +44,10 @@ public class AuthenticationService {
             }
 
             // Check if username already exists (if you have this method)
-            if (repository.findByUsername(request.getUsername()).isPresent()) {
-                throw new RuntimeException("Username " + request.getUsername() + " already exists");
-            }
+        // Check if username already exists (only if username is not null)
+        if (request.getUsername() != null && repository.findByUsername(request.getUsername()).isPresent()) {
+            throw new RuntimeException("Username " + request.getUsername() + " already exists");
+        }
         // Get roles from role names
         Set<Role> roles = new HashSet<>();
         if (request.getRoleNames() != null && !request.getRoleNames().isEmpty()) {
@@ -88,12 +89,12 @@ public class AuthenticationService {
     public AuthenticationResponse authenticate(LoginRequest request) {
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
-                        request.getUsername(),
+                        request.getUserName(),
                         request.getPassword()
                 )
         );
 
-        var user = repository.findByEmail(request.getUsername())
+        var user = repository.findByUsername(request.getUserName())
                 .orElseThrow();
 
         var jwtToken = jwtService.generateToken(user);

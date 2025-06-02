@@ -1,7 +1,6 @@
 import { Component, ViewChild, OnInit } from '@angular/core';
 import { RouterLink, RouterOutlet, Router, NavigationEnd } from '@angular/router';
 import { BpmnModelerComponent } from './components/bpmn-modeler/bpmn-modeler.component';
-import { IntegrationService } from './services/integration.service';
 import { LocalStorageService } from './services/local-storage.service';
 import { CommonModule } from '@angular/common';
 import { filter } from 'rxjs/operators';
@@ -18,7 +17,6 @@ export class AppComponent implements OnInit {
   isLoggedIn = false;
   
   constructor(
-    private integrationService: IntegrationService,
     private router: Router,
     private storage: LocalStorageService
   ) {}

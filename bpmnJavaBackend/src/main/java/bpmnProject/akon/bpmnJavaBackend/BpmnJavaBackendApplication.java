@@ -35,6 +35,7 @@ public class BpmnJavaBackendApplication {
 			if (!userRepository.findByEmail("admin@mail.com").isPresent()) {
 				var admin = RegisterRequest.builder()
 						.firstName("Admin")
+						.username("admin")
 						.lastName("User")
 						.email("admin@mail.com")
 						.password("password")
@@ -49,6 +50,7 @@ public class BpmnJavaBackendApplication {
 			if (!userRepository.findByEmail("modeler@mail.com").isPresent()) {
 				var modeler = RegisterRequest.builder()
 						.firstName("Modeler")
+						.username("modeler")
 						.lastName("User")
 						.email("modeler@mail.com")
 						.password("password")
@@ -63,6 +65,7 @@ public class BpmnJavaBackendApplication {
 			if (!userRepository.findByEmail("viewer@mail.com").isPresent()) {
 				var viewer = RegisterRequest.builder()
 						.firstName("Viewer")
+						.username("viewer")
 						.lastName("User")
 						.email("viewer@mail.com")
 						.password("password")

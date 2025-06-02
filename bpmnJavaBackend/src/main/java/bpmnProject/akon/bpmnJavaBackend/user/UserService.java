@@ -129,8 +129,8 @@ public class UserService implements UserDetailsService {
 
         return UserDto.builder()
                 .id(user.getId())
-                .firstname(user.getFirstname())
-                .lastname(user.getLastname())
+                .firstName(user.getFirstname())
+                .lastName(user.getLastname())
                 .email(user.getEmail())
                 .roles(roleDtos)
                 .build();

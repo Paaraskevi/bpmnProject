@@ -37,9 +37,9 @@ public class Role {
     }
 
     // Predefined role constants
-    public static final String ROLE_ADMIN = "ROLE_ADMIN";
-    public static final String ROLE_MODELER = "ROLE_MODELER";
-    public static final String ROLE_VIEWER = "ROLE_VIEWER";
+    public static final String ROLE_ADMIN = "ADMIN";
+    public static final String ROLE_MODELER = "MODELER";
+    public static final String ROLE_VIEWER = "VIEWER";
 
     // Custom setter to handle collection initialization
     public void setUsers(Set<User> users) {

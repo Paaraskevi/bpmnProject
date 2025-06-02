@@ -38,7 +38,7 @@ export class LoginComponent {
     }
 
     const request = {
-      email: formValue.username,
+      username: formValue.username,
       password: formValue.password
     };
 
@@ -52,13 +52,14 @@ export class LoginComponent {
         alert('Login failed. Please check your credentials.');
       }
     });
-  } private setSession(response: any): void {
-    const expiresAt = Date.now() + response.expiresIn * 1000; 
-
-    this.storage.set('auth-key', response.access_token);
-    this.storage.set('refresh-token', response.refresh_token);
-    this.storage.set('user', JSON.stringify(response.user));
-    this.storage.set('expires-at', expiresAt.toString());
   }
+  private setSession(response: any): void {
+  const expiresAt = Date.now() + response.expiresIn * 1000; 
+
+  this.storage.set('auth-key', response.accessToken);  
+  this.storage.set('refresh-token', response.refreshToken);  
+  this.storage.set('user', JSON.stringify(response.user));
+  this.storage.set('expires-at', expiresAt.toString());
+}
 
 }
