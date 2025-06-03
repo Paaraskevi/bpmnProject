@@ -3,8 +3,8 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { Router, RouterLink } from '@angular/router';
 import { LocalStorageService } from '../../services/local-storage.service';
 import { CommonModule } from '@angular/common';
-import { AuthenticationService } from '../../services/authentication.service';
-import { LoginRequest } from '../../services/authentication.service';
+import { AuthenticationService, LoginRequest } from '../../services/authentication.service';
+
 @Component({
   selector: 'app-login',
   standalone: true,
@@ -13,13 +13,12 @@ import { LoginRequest } from '../../services/authentication.service';
   styleUrl: './login.component.css'
 })
 export class LoginComponent {
+  private router = inject(Router);
+
   constructor(
     private authenticationService: AuthenticationService,
     private storage: LocalStorageService
-  ) { }
-
-  router = inject(Router);
-  request: LoginRequest = { username: '', password: '' }
+  ) {}
 
   userForm: FormGroup = new FormGroup({
     username: new FormControl('', Validators.required),
@@ -27,31 +26,31 @@ export class LoginComponent {
     rememberMe: new FormControl(false)
   });
 
-  login() {
+  login(): void {
+    const formValue = this.userForm.value;
 
-    this.storage.remove('auth-key');
-    
-    const formValue =  this.userForm.value;
-
-    if(formValue.username == '' || formValue.password == '') {
-      alert('Wrong Credentilas');
+    if (!formValue.username || !formValue.password) {
+      alert('Please provide both username and password.');
       return;
     }
 
-;
-    this.request.username = formValue.username;
-    this.request.password = formValue.password;
+    const request: LoginRequest = {
+      username: formValue.username,
+      password: formValue.password
+    };
 
-    this.authenticationService.login(this.request).subscribe({
-      next:(res) => {
-        console.log(res);
-        console.log("Received Response:"+res.access_token);
+    this.storage.remove('access_token');
+
+    this.authenticationService.login(formValue.username, formValue.password).subscribe({
+      next: (res) => {
+        console.log('Login successful:', res);
+        this.storage.set('access_token', res.access_token);
         this.router.navigate(['/dashboard']);
-        this.storage.set('auth-key', res.access_token);
-
-      }, error: (err:any) => {
-        console.log("Error Received Response:"+err);
-        this.storage.remove('auth-key');
+      },
+      error: (err) => {
+        console.error('Login failed:', err);
+        this.storage.remove('access_token');
+        alert('Login failed. Please check your credentials.');
       }
     });
   }

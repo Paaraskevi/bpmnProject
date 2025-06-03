@@ -4,27 +4,24 @@ import bpmnProject.akon.bpmnJavaBackend.Config.JwtService;
 import bpmnProject.akon.bpmnJavaBackend.Token.Token;
 import bpmnProject.akon.bpmnJavaBackend.Token.TokenRepository;
 import bpmnProject.akon.bpmnJavaBackend.Token.TokenType;
+import bpmnProject.akon.bpmnJavaBackend.User.Role;
 import bpmnProject.akon.bpmnJavaBackend.User.RoleRepository;
 import bpmnProject.akon.bpmnJavaBackend.User.User;
 import bpmnProject.akon.bpmnJavaBackend.User.UserRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class AuthenticationService {
+
     private final UserRepository repository;
     private final RoleRepository roleRepository;
     private final TokenRepository tokenRepository;
@@ -34,27 +31,21 @@ public class AuthenticationService {
 
     @Transactional
     public AuthenticationResponse register(RegisterRequest request) {
-            // Check if user already exists
-            if (repository.findByEmail(request.getEmail()).isPresent()) {
-                throw new RuntimeException("User with email " + request.getEmail() + " already exists");
-            }
+        if (repository.findByEmail(request.getEmail()).isPresent()) {
+            throw new RuntimeException("User with email " + request.getEmail() + " already exists");
+        }
 
-            // Check if username already exists (if you have this method)
-        // Check if username already exists (only if username is not null)
         if (request.getUsername() != null && repository.findByUsername(request.getUsername()).isPresent()) {
             throw new RuntimeException("Username " + request.getUsername() + " already exists");
         }
-//        // Get roles from role names
+//
 //        Set<Role> roles = new HashSet<>();
 //        if (request.getRoleNames() != null && !request.getRoleNames().isEmpty()) {
-//            // Create a copy of the role names to avoid concurrent modification
-//            List<String> roleNamesList = new ArrayList<>(request.getRoleNames());
-//            roles = roleNamesList.stream()
+//            roles = request.getRoleNames().stream()
 //                    .map(roleName -> roleRepository.findByName(roleName)
-//                            .orElseThrow(() -> new RuntimeException("Role not found: " + roleName))) // This throws the error
+//                            .orElseThrow(() -> new RuntimeException("Role not found: " + roleName)))
 //                    .collect(Collectors.toSet());
 //        } else {
-//            // Default role if none specified
 //            Role viewerRole = roleRepository.findByName(Role.ROLE_VIEWER)
 //                    .orElseThrow(() -> new RuntimeException("Default role not found"));
 //            roles.add(viewerRole);
@@ -66,78 +57,52 @@ public class AuthenticationService {
                 .username(request.getUsername())
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
+                //.roles(roles)
                 .tokens(new ArrayList<>())
                 .build();
 
         var savedUser = repository.save(user);
-        var jwtToken = jwtService.generateToken(user);
-        //var refreshToken = jwtService.generateRefreshToken(user);
+        var jwtToken = jwtService.generateToken(savedUser);
         saveUserToken(savedUser, jwtToken);
+
+        long expirationTime = jwtService.extractExpiration(jwtToken).getTime();
+        long currentTime = System.currentTimeMillis();
+        long expiresInSeconds = (expirationTime - currentTime) / 1000;
 
         return AuthenticationResponse.builder()
                 .accessToken(jwtToken)
-                    .build();
+                .user(savedUser)
+                .tokenType("Bearer")
+                .expiresIn(expiresInSeconds)
+                .build();
     }
 
     @Transactional
     public AuthenticationResponse authenticate(LoginRequest request) {
-        System.out.println("Trying to authenticate user: " + request.getUsername());
-
         var auth = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.getUsername(),
-                        request.getPassword()
-                )
+                new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
         );
 
         var user = (User) auth.getPrincipal();
-
-        // Revoke all existing tokens FIRST
         revokeAllUserTokens(user);
-
-
         var jwtToken = jwtService.generateToken(user);
-
-        // Save the new token
         saveUserToken(user, jwtToken);
 
-        // Calculate expiresIn as seconds from now
         long expirationTime = jwtService.extractExpiration(jwtToken).getTime();
         long currentTime = System.currentTimeMillis();
         long expiresInSeconds = (expirationTime - currentTime) / 1000;
 
+        User userWithRoles = repository.findByUsername(user.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
         return AuthenticationResponse.builder()
                 .accessToken(jwtToken)
-                .user(user)
+                .user(userWithRoles)
+                .tokenType("Bearer")
                 .expiresIn(expiresInSeconds)
                 .build();
     }
 
-    @Transactional
-    public AuthenticationResponse authenticate(AuthenticationRequest request) {
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.getEmail(),
-                        request.getPassword()
-                )
-        );
-        var user = repository.findByEmail(request.getEmail())
-                .orElseThrow();
-        var jwtToken = jwtService.generateToken(user);
-        revokeAllUserTokens(user);
-        saveUserToken(user, jwtToken);
-
-        // Calculate expiresIn as seconds from now
-        long expirationTime = jwtService.extractExpiration(jwtToken).getTime();
-        long currentTime = System.currentTimeMillis();
-        long expiresInSeconds = (expirationTime - currentTime) / 1000;
-
-        return AuthenticationResponse.builder()
-                .accessToken(jwtToken)
-                .user(user)
-                .expiresIn(expiresInSeconds)
-                .build();
-    }
     private void saveUserToken(User user, String jwtToken) {
         var token = Token.builder()
                 .user(user)
@@ -149,24 +114,16 @@ public class AuthenticationService {
         tokenRepository.save(token);
     }
 
-
     @Transactional
     private void revokeAllUserTokens(User user) {
         var validUserTokens = tokenRepository.findAllValidTokenByUser(user.getId());
-        if (validUserTokens.isEmpty()) {
-            return;
-        }
+        if (validUserTokens.isEmpty()) return;
 
-        // Mark all tokens as expired and revoked
         validUserTokens.forEach(token -> {
             token.setExpired(true);
             token.setRevoked(true);
         });
-
-        // Save all at once for better performance
         tokenRepository.saveAll(validUserTokens);
-
-        // Force flush to ensure changes are persisted immediately
         tokenRepository.flush();
     }
 }

@@ -1,6 +1,5 @@
 package bpmnProject.akon.bpmnJavaBackend.Auth;
 
-
 import bpmnProject.akon.bpmnJavaBackend.User.User;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
@@ -16,6 +15,19 @@ public class AuthenticationResponse {
 
     @JsonProperty("access_token")
     private String accessToken;
+
+    @JsonProperty("refresh_token")
+    private String refreshToken;
+
+    @JsonProperty("token_type")
+    private String tokenType;
+
     private User user;
-    private long expiresIn;
+
+    @JsonProperty("expires_in")
+    private Long expiresIn;
+
+    public String getToken() {
+        return accessToken;
+    }
 }

@@ -1,5 +1,6 @@
 package bpmnProject.akon.bpmnJavaBackend.Config;
 
+import bpmnProject.akon.bpmnJavaBackend.User.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwt;
 import io.jsonwebtoken.Jwts;
@@ -12,11 +13,9 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import java.security.Key;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 @Service
@@ -34,18 +33,34 @@ public class JwtService {
         return extractClaim(token, Claims::getSubject);
     }
 
+    public List<String> extractRoles(String token){
+        Claims claims = extractAllClaims(token);
+        return (List<String>) claims.get("roles");
+    }
+
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
         final Claims claims = extractAllClaims(token);
         return claimsResolver.apply(claims);
     }
 
     public String generateToken(UserDetails userDetails) {
-        return Jwts.builder()
-                .setSubject(userDetails.getUsername())
-                .setIssuedAt(new Date())
-                .setExpiration(new Date((new Date()).getTime() + jwtExpiration))
-                .signWith(SignatureAlgorithm.HS256, secretKey)
-                .compact();
+        Map<String, Object> extraClaims = new HashMap<>();
+        if (userDetails instanceof User) {
+            User user = (User) userDetails;
+            List<String> roleNames = user.getRoles().stream()
+                    .map(role -> role.getName())
+                    .collect(Collectors.toList());
+            extraClaims.put("roles", roleNames);
+            extraClaims.put("Id", user.getId());
+            extraClaims.put("email", user.getEmail());
+        }
+        return  generateToken(extraClaims,userDetails);
+//        return Jwts.builder()
+//                .setSubject(userDetails.getUsername())
+//                .setIssuedAt(new Date())
+//                .setExpiration(new Date((new Date()).getTime() + jwtExpiration))
+//                .signWith(SignatureAlgorithm.HS256, secretKey)
+//                .compact();
     }
 
     public String generateToken(
