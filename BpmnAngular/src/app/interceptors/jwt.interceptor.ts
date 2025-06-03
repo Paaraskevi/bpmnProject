@@ -6,65 +6,63 @@ import {
   HttpInterceptor,
   HttpErrorResponse
 } from '@angular/common/http';
-import { Observable, throwError, BehaviorSubject } from 'rxjs';
-import { catchError, filter, take, switchMap } from 'rxjs/operators';
+import { Observable, throwError } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { AuthenticationService } from '../services/authentication.service';
+import { Router } from '@angular/router';
 
 @Injectable()
 export class JwtInterceptor implements HttpInterceptor {
-  private isRefreshing = false;
-  private refreshTokenSubject: BehaviorSubject<any> = new BehaviorSubject<any>(null);
 
-  constructor(private authService: AuthenticationService) {}
+  constructor(
+    private authService: AuthenticationService,
+    private router: Router
+  ) { }
 
-  intercept(request: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
-    const token = this.authService.getToken();
-    if (token) {
-      request = this.addToken(request, token);
+  intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
+    console.log('Intercepting request to:', req.url);
+    
+    const authToken = this.authService.getToken();
+
+    // Add auth header to all requests except auth endpoints
+    let authReq = req;
+    if (authToken && !this.isAuthEndpoint(req.url)) {
+      authReq = this.addTokenHeader(req, authToken);
+      console.log('Added auth header to request');
     }
 
-    return next.handle(request).pipe(
-      catchError((error) => {
-        if (error instanceof HttpErrorResponse && error.status === 401) {
-          return this.handle401Error(request, next);
-        } else {
+    return next.handle(authReq).pipe(
+      catchError((error: HttpErrorResponse) => {
+        console.log('HTTP Error occurred:', error.status, error.message);
+        
+        // Handle 401 errors - simple logout for now
+        if (error.status === 401 && !this.isAuthEndpoint(req.url)) {
+          console.log('401 error - token expired or invalid, logging out');
+          this.authService.logout();
           return throwError(() => error);
         }
+        
+        // Handle 403 errors
+        if (error.status === 403) {
+          console.warn('403 error - access forbidden, insufficient privileges');
+          this.router.navigate(['/unauthorized']);
+        }
+        
+        return throwError(() => error);
       })
     );
   }
 
-  private addToken(request: HttpRequest<any>, token: string): HttpRequest<any> {
+  private isAuthEndpoint(url: string): boolean {
+    const authEndpoints = ['/auth/login', '/auth/register', '/auth/refresh-token', '/auth/logout'];
+    return authEndpoints.some(endpoint => url.includes(endpoint));
+  }
+
+  private addTokenHeader(request: HttpRequest<any>, token: string): HttpRequest<any> {
     return request.clone({
       setHeaders: {
         Authorization: `Bearer ${token}`
       }
     });
-  }
-
-  private handle401Error(request: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
-    if (!this.isRefreshing) {
-      this.isRefreshing = true;
-      this.refreshTokenSubject.next(null);
-
-      return this.authService.refreshToken().pipe(
-        switchMap((token: any) => {
-          this.isRefreshing = false;
-          this.refreshTokenSubject.next(token);
-          return next.handle(this.addToken(request, token));
-        }),
-        catchError((err) => {
-          this.isRefreshing = false;
-          this.authService.logout();
-          return throwError(() => err);
-        })
-      );
-    } else {
-      return this.refreshTokenSubject.pipe(
-        filter(token => token != null),
-        take(1),
-        switchMap(token => next.handle(this.addToken(request, token)))
-      );
-    }
   }
 }

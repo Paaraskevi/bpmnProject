@@ -1,6 +1,7 @@
 package bpmnProject.akon.bpmnJavaBackend.User;
 
 import bpmnProject.akon.bpmnJavaBackend.Token.Token;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.security.core.GrantedAuthority;
@@ -16,6 +17,8 @@ import java.util.stream.Collectors;
 @AllArgsConstructor
 @Entity
 @Table(name = "_user")
+@EqualsAndHashCode(exclude = {"tokens", "roles"})
+@ToString(exclude = {"tokens", "roles"})
 public class User implements UserDetails {
 
     @Id
@@ -24,32 +27,46 @@ public class User implements UserDetails {
 
     private String firstname;
     private String lastname;
-
-    @Column(unique = true, nullable = false)
     private String username;
-
-    @Column(unique = true, nullable = false)
     private String email;
 
+    @JsonIgnore
     private String password;
 
-    @ManyToMany(fetch = FetchType.EAGER, cascade = {CascadeType.MERGE, CascadeType.PERSIST})
+    @Column(name = "enabled")
+    @Builder.Default
+    private boolean enabled = true;
+
+    @Column(name = "account_non_expired")
+    @Builder.Default
+    private boolean accountNonExpired = true;
+
+    @Column(name = "account_non_locked")
+    @Builder.Default
+    private boolean accountNonLocked = true;
+
+    @Column(name = "credentials_non_expired")
+    @Builder.Default
+    private boolean credentialsNonExpired = true;
+
+    // Many-to-Many relationship with Role - NO CASCADE to avoid detached entity issues
+    @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "user_roles",
             joinColumns = @JoinColumn(name = "user_id"),
-            inverseJoinColumns = @JoinColumn(name = "role_id"),
-            foreignKey = @ForeignKey(name = "FK_user_roles"),
-            inverseForeignKey = @ForeignKey(name = "FK_roles_user"))
+            inverseJoinColumns = @JoinColumn(name = "role_id")
+    )
     @Builder.Default
     private Set<Role> roles = new HashSet<>();
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    @JsonIgnore
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
     private List<Token> tokens = new ArrayList<>();
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return new ArrayList<>(roles).stream()
+        return roles.stream()
                 .map(role -> new SimpleGrantedAuthority(role.getName()))
                 .collect(Collectors.toList());
     }
@@ -61,79 +78,67 @@ public class User implements UserDetails {
 
     @Override
     public String getUsername() {
-        return username;
+        return username != null ? username : email;
     }
 
     @Override
     public boolean isAccountNonExpired() {
-        return true;
+        return accountNonExpired;
     }
 
     @Override
     public boolean isAccountNonLocked() {
-        return true;
+        return accountNonLocked;
     }
 
     @Override
     public boolean isCredentialsNonExpired() {
-        return true;
+        return credentialsNonExpired;
     }
 
     @Override
     public boolean isEnabled() {
-        return true;
+        return enabled;
     }
 
-    // Helper methods
+    // Helper methods for role management
+    public void addRole(Role role) {
+        this.roles.add(role);
+    }
+
+    public void removeRole(Role role) {
+        this.roles.remove(role);
+    }
+
     public boolean hasRole(String roleName) {
-        return roles != null && roles.stream().anyMatch(role -> role.getName().equals(roleName));
+        return roles.stream()
+                .anyMatch(role -> role.getName().equals(roleName));
     }
 
-    public boolean isAdmin() {
-        return hasRole(Role.ROLE_ADMIN);
+    public List<String> getRoleNames() {
+        return roles.stream()
+                .map(Role::getName)
+                .toList();
     }
 
-    public boolean isModeler() {
-        return hasRole(Role.ROLE_MODELER);
-    }
-
-    public boolean isViewer() {
-        return hasRole(Role.ROLE_VIEWER);
-    }
-
-    // Custom setters to handle collection initialization
-    public void setRoles(Set<Role> roles) {
-        if (this.roles == null) {
-            this.roles = new HashSet<>();
+    public String getFullName() {
+        if (firstname != null && lastname != null) {
+            return firstname + " " + lastname;
+        } else if (firstname != null) {
+            return firstname;
+        } else if (lastname != null) {
+            return lastname;
         }
-        this.roles.clear();
-        if (roles != null) {
-            this.roles.addAll(roles);
-        }
+        return username != null ? username : email;
     }
 
-    public void setTokens(List<Token> tokens) {
-        if (this.tokens == null) {
-            this.tokens = new ArrayList<>();
-        }
-        this.tokens.clear();
-        if (tokens != null) {
-            this.tokens.addAll(tokens);
-        }
-    }
-
-    // Safe getter methods
-    public Set<Role> getRoles() {
-        if (this.roles == null) {
-            this.roles = new HashSet<>();
-        }
-        return this.roles;
-    }
-
-    public List<Token> getTokens() {
-        if (this.tokens == null) {
-            this.tokens = new ArrayList<>();
-        }
-        return this.tokens;
+    // Debug method
+    public void printAccountStatus() {
+        System.out.println("User: " + this.getUsername());
+        System.out.println("Enabled: " + this.isEnabled());
+        System.out.println("AccountNonExpired: " + this.isAccountNonExpired());
+        System.out.println("AccountNonLocked: " + this.isAccountNonLocked());
+        System.out.println("CredentialsNonExpired: " + this.isCredentialsNonExpired());
+        System.out.println("Roles: " + this.getRoleNames());
     }
 }
