@@ -46,12 +46,6 @@ public class AuthenticationController {
     ) {
         return ResponseEntity.ok(service.authenticate(request));
     }
-
-    @RequestMapping(method = RequestMethod.POST, path = "/user")
-    @PreAuthorize("hasRole('ROLE_Admin')")
-    public ResponseEntity<User> saveUser(@RequestBody User user) {
-
-    }
 //    @PostMapping("/refresh-token")
 //    public void refreshToken(
 //            HttpServletRequest request,

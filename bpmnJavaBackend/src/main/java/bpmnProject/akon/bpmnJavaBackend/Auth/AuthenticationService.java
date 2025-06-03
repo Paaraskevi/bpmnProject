@@ -70,7 +70,7 @@ public class AuthenticationService {
                 .build();
 
         var savedUser = repository.save(user);
-        var jwtToken = jwtService.generateToken(user,role);
+        var jwtToken = jwtService.generateToken(user);
         //var refreshToken = jwtService.generateRefreshToken(user);
         saveUserToken(savedUser, jwtToken);
 
@@ -79,25 +79,29 @@ public class AuthenticationService {
                     .build();
     }
 
+    @Transactional
     public AuthenticationResponse authenticate(LoginRequest request) {
         System.out.println("Trying to authenticate user: " + request.getUsername());
 
-
-      var auth =  authenticationManager.authenticate(
+        var auth = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.getUsername(),
                         request.getPassword()
                 )
         );
-        System.out.println("Login request username: [" + request.getUsername() + "]");
 
-        var user = (User)auth.getPrincipal();
-        var jwtToken = jwtService.generateToken(user,role);
-       // var refreshToken = jwtService.generateRefreshToken(user);
+        var user = (User) auth.getPrincipal();
+
+        // Revoke all existing tokens FIRST
         revokeAllUserTokens(user);
+
+
+        var jwtToken = jwtService.generateToken(user);
+
+        // Save the new token
         saveUserToken(user, jwtToken);
 
-        // Calculate expiresIn as seconds from now (not full timestamp)
+        // Calculate expiresIn as seconds from now
         long expirationTime = jwtService.extractExpiration(jwtToken).getTime();
         long currentTime = System.currentTimeMillis();
         long expiresInSeconds = (expirationTime - currentTime) / 1000;
@@ -120,7 +124,6 @@ public class AuthenticationService {
         var user = repository.findByEmail(request.getEmail())
                 .orElseThrow();
         var jwtToken = jwtService.generateToken(user);
-        var refreshToken = jwtService.generateRefreshToken(user);
         revokeAllUserTokens(user);
         saveUserToken(user, jwtToken);
 
@@ -131,7 +134,6 @@ public class AuthenticationService {
 
         return AuthenticationResponse.builder()
                 .accessToken(jwtToken)
-
                 .user(user)
                 .expiresIn(expiresInSeconds)
                 .build();
@@ -151,44 +153,20 @@ public class AuthenticationService {
     @Transactional
     private void revokeAllUserTokens(User user) {
         var validUserTokens = tokenRepository.findAllValidTokenByUser(user.getId());
-        if (validUserTokens.isEmpty())
+        if (validUserTokens.isEmpty()) {
             return;
+        }
 
-        // Create a copy of the list to avoid concurrent modification
-        List<Token> tokensToUpdate = new ArrayList<>(validUserTokens);
-        tokensToUpdate.forEach(token -> {
+        // Mark all tokens as expired and revoked
+        validUserTokens.forEach(token -> {
             token.setExpired(true);
             token.setRevoked(true);
         });
-        tokenRepository.saveAll(tokensToUpdate);
-    }
 
-//    @Transactional
-//    public void refreshToken(
-//            HttpServletRequest request,
-//            HttpServletResponse response
-//    ) throws IOException {
-//        final String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
-//        final String refreshToken;
-//        final String userEmail;
-//        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-//            return;
-//        }
-//        refreshToken = authHeader.substring(7);
-//        userEmail = jwtService.extractUsername(refreshToken);
-//        if (userEmail != null) {
-//            var user = this.repository.findByEmail(userEmail)
-//                    .orElseThrow();
-//            if (jwtService.isTokenValid(refreshToken, user)) {
-//                var accessToken = jwtService.generateToken(user);
-//                revokeAllUserTokens(user);
-//                saveUserToken(user, accessToken);
-//                var authResponse = AuthenticationResponse.builder()
-//                        .accessToken(accessToken)
-//                        .refreshToken(refreshToken)
-//                        .build();
-//                new ObjectMapper().writeValue(response.getOutputStream(), authResponse);
-//            }
-//        }
-//    }
+        // Save all at once for better performance
+        tokenRepository.saveAll(validUserTokens);
+
+        // Force flush to ensure changes are persisted immediately
+        tokenRepository.flush();
+    }
 }

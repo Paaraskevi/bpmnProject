@@ -32,7 +32,7 @@ export interface LoginResponse {
 }
 
 export interface AuthenticationResponse {
-  tokens:string;
+  token:string;
   refreshToken:string;
   type: string;
   user: User;
@@ -110,7 +110,7 @@ export class AuthenticationService {
       refreshToken: refreshToken
     }).pipe(
       map(response => {
-        if (response.tokens) {
+        if (response.token) {
           this.setSession(response);
         }
         return response;
@@ -125,11 +125,11 @@ export class AuthenticationService {
   // Session Management
   private setSession(authResult: AuthenticationResponse): void {
     if (typeof window !== 'undefined') {
-         console.log('Setting session with token:', authResult.tokens);
-      localStorage.setItem(this.TOKEN_KEY, authResult.tokens);
+         console.log('Setting session with token:', authResult.token);
+      localStorage.setItem(this.TOKEN_KEY, authResult.token);
       localStorage.setItem(this.USER_KEY, JSON.stringify(authResult.user));
 
-      this.tokenSubject.next(authResult.tokens);
+      this.tokenSubject.next(authResult.token);
       this.currentUserSubject.next(authResult.user);
     }
   }
