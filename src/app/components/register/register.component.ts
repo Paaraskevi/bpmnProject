@@ -57,7 +57,6 @@ console.log(request);
       next: (res) => {
         console.log('Registration successful:', res);
         this.msg = 'Registration successful!';
-        // Store the access token
         this.storage.set('auth-key', res.accessToken);
       },
       error: (err) => {

@@ -32,8 +32,9 @@ export interface LoginResponse {
 }
 
 export interface AuthenticationResponse {
-  token:string;
-  refreshToken:string;
+  access_token: any;
+  token: string;
+  refreshToken: string;
   type: string;
   user: User;
   expiresIn?: number;
@@ -43,8 +44,8 @@ export interface RegisterRequest {
   firstName: string;
   lastName: string;
   username: string;
-  password: string;
   email: string;
+  password: string;
   address?: string;
   mobileno?: string;
   age?: string;
@@ -89,14 +90,23 @@ export class AuthenticationService {
   }
 
   // Authentication Methods
- login(credentials: any): Observable<any> {
+  /* login(credentials: any): Observable<any> {
     return this.http.post<any>(`${this.API_URL}/login`, credentials);
+  }*/
+  login(username: string, password: string): Observable<any> {
+    return this.http.post<AuthenticationResponse>(this.API_URL, { username, password })
+      .pipe(
+        tap(response => {
+          localStorage.setItem('access_token', response.access_token);
+          localStorage.setItem('user', JSON.stringify(response.user));
+        })
+      );
   }
 
-  register(userData: RegisterRequest): Observable<any> {
-    return this.http.post(`${this.API_URL}/register`, JSON.stringify(userData))
-      .pipe(catchError(this.handleError));
-  }
+
+ register(request: RegisterRequest): Observable<any> {
+  return this.http.post(`${this.API_URL}/auth/register`, request);
+}
 
   logout(): void {
     this.clearSession();
@@ -105,7 +115,7 @@ export class AuthenticationService {
 
   refreshToken(): Observable<AuthenticationResponse> {
     const refreshToken = localStorage.getItem('refreshToken');
-     console.log('Attempting token refresh with refreshToken:', refreshToken);
+    console.log('Attempting token refresh with refreshToken:', refreshToken);
     return this.http.post<AuthenticationResponse>(`${this.API_URL}/refresh-token`, {
       refreshToken: refreshToken
     }).pipe(
@@ -125,7 +135,7 @@ export class AuthenticationService {
   // Session Management
   private setSession(authResult: AuthenticationResponse): void {
     if (typeof window !== 'undefined') {
-         console.log('Setting session with token:', authResult.token);
+      console.log('Setting session with token:', authResult.token);
       localStorage.setItem(this.TOKEN_KEY, authResult.token);
       localStorage.setItem(this.USER_KEY, JSON.stringify(authResult.user));
 
@@ -145,11 +155,10 @@ export class AuthenticationService {
     this.currentUserSubject.next(null);
   }
 
-getToken(): string | null {
-  const token = localStorage.getItem('auth-key');
-  console.log('Retrieved token from storage:', token);
-  return token;
-}
+  getToken(): string | null {
+    return localStorage.getItem('access_token');
+  }
+
   isLoggedIn(): boolean {
     const token = this.getToken();
     return token != null && !this.isTokenExpired(token);
