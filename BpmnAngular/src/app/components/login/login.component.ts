@@ -1,9 +1,9 @@
 import { Component, inject } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { LocalStorageService } from '../../services/local-storage.service';
 import { CommonModule } from '@angular/common';
-import { AuthenticationService, LoginRequest } from '../../services/authentication.service';
+import { AuthenticationService } from '../../services/authentication.service';
+import { LoginRequest } from '../../services/authentication.service';
 
 @Component({
   selector: 'app-login',
@@ -13,12 +13,14 @@ import { AuthenticationService, LoginRequest } from '../../services/authenticati
   styleUrl: './login.component.css'
 })
 export class LoginComponent {
-  private router = inject(Router);
-
   constructor(
-    private authenticationService: AuthenticationService,
-    private storage: LocalStorageService
-  ) {}
+    private authenticationService: AuthenticationService
+  ) { }
+
+  router = inject(Router);
+  request: LoginRequest = { username: '', password: '' }
+  loginError: string = '';
+  isLoading: boolean = false;
 
   userForm: FormGroup = new FormGroup({
     username: new FormControl('', Validators.required),
@@ -26,32 +28,80 @@ export class LoginComponent {
     rememberMe: new FormControl(false)
   });
 
-  login(): void {
-    const formValue = this.userForm.value;
-
-    if (!formValue.username || !formValue.password) {
-      alert('Please provide both username and password.');
+  login() {
+    if (this.userForm.invalid) {
+      this.loginError = 'Please fill in all required fields';
+      this.markFormGroupTouched();
       return;
     }
 
-    const request: LoginRequest = {
-      username: formValue.username,
-      password: formValue.password
-    };
+    this.isLoading = true;
+    this.loginError = '';
+    
+    const formValue = this.userForm.value;
+    this.request.username = formValue.username;
+    this.request.password = formValue.password;
 
-    this.storage.remove('access_token');
+    console.log('Attempting login with username:', this.request.username);
 
-    this.authenticationService.login(formValue.username, formValue.password).subscribe({
-      next: (res) => {
-        console.log('Login successful:', res);
-        this.storage.set('access_token', res.access_token);
+    this.authenticationService.login(this.request).subscribe({
+      next: (response) => {
+        console.log('Login successful:', response);
+        console.log('Access token received:', response.access_token ? 'Yes' : 'No');
+        console.log('User info:', response.user);
+        console.log('User roles:', response.user?.roles);
+
         this.router.navigate(['/dashboard']);
-      },
-      error: (err) => {
-        console.error('Login failed:', err);
-        this.storage.remove('access_token');
-        alert('Login failed. Please check your credentials.');
+        this.isLoading = false;
+      }, 
+      error: (error) => {
+        console.error('Login error:', error);
+        this.loginError = error.message || 'Login failed. Please check your credentials and try again.';
+        this.isLoading = false;
       }
     });
+  }
+
+  private markFormGroupTouched(): void {
+    Object.keys(this.userForm.controls).forEach(key => {
+      const control = this.userForm.get(key);
+      control?.markAsTouched();
+    });
+  }
+
+  getFieldError(fieldName: string): string {
+    const field = this.userForm.get(fieldName);
+    if (field?.errors && field.touched) {
+      if (field.errors['required']) {
+        return `${fieldName} is required`;
+      }
+      if (field.errors['minlength']) {
+        return `${fieldName} must be at least ${field.errors['minlength'].requiredLength} characters`;
+      }
+    }
+    return '';
+  }
+  loginAsAdmin() {
+    this.userForm.patchValue({
+      username: 'admin',
+      password: 'admin123'
+    });
+    this.login();
+  }
+
+  loginAsModeler() {
+    this.userForm.patchValue({
+      username: 'modeler',
+      password: 'modeler123'
+    });
+    this.login();
+  }
+
+  loginAsViewer() {
+    this.userForm.patchValue({
+      username: 'viewer',
+      password: 'viewer123'
+    });
+    this.login();
   }
 }

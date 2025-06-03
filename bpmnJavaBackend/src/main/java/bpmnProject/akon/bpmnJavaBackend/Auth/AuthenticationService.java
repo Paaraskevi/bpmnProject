@@ -11,6 +11,7 @@ import bpmnProject.akon.bpmnJavaBackend.User.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,16 +22,17 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class AuthenticationService {
-
     private final UserRepository repository;
     private final RoleRepository roleRepository;
     private final TokenRepository tokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
+    private final UserDetailsService userDetailsService;
 
     @Transactional
     public AuthenticationResponse register(RegisterRequest request) {
+        // Check if user already exists
         if (repository.findByEmail(request.getEmail()).isPresent()) {
             throw new RuntimeException("User with email " + request.getEmail() + " already exists");
         }
@@ -38,67 +40,137 @@ public class AuthenticationService {
         if (request.getUsername() != null && repository.findByUsername(request.getUsername()).isPresent()) {
             throw new RuntimeException("Username " + request.getUsername() + " already exists");
         }
-//
-//        Set<Role> roles = new HashSet<>();
-//        if (request.getRoleNames() != null && !request.getRoleNames().isEmpty()) {
-//            roles = request.getRoleNames().stream()
-//                    .map(roleName -> roleRepository.findByName(roleName)
-//                            .orElseThrow(() -> new RuntimeException("Role not found: " + roleName)))
-//                    .collect(Collectors.toSet());
-//        } else {
-//            Role viewerRole = roleRepository.findByName(Role.ROLE_VIEWER)
-//                    .orElseThrow(() -> new RuntimeException("Default role not found"));
-//            roles.add(viewerRole);
-//        }
 
+        // Get roles from role names - fetch from database to ensure managed entities
+        Set<Role> roles = new HashSet<>();
+        if (request.getRoleNames() != null && !request.getRoleNames().isEmpty()) {
+            for (String roleName : request.getRoleNames()) {
+                Role role = roleRepository.findByName(roleName)
+                        .orElseThrow(() -> new RuntimeException("Role not found: " + roleName));
+                roles.add(role);
+            }
+        } else {
+            // Default role if none specified
+            Role viewerRole = roleRepository.findByName(Role.ROLE_VIEWER)
+                    .orElseThrow(() -> new RuntimeException("Default role not found"));
+            roles.add(viewerRole);
+        }
+
+        // Create user without cascading role operations
         var user = User.builder()
                 .firstname(request.getFirstName())
                 .lastname(request.getLastName())
                 .username(request.getUsername())
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
-                //.roles(roles)
+                .roles(new HashSet<>()) // Start with empty roles
                 .tokens(new ArrayList<>())
                 .build();
 
+        // Save user first
         var savedUser = repository.save(user);
-        var jwtToken = jwtService.generateToken(savedUser);
+
+        // Now add roles to the saved user
+        savedUser.setRoles(roles);
+
+        // Save again with roles
+        savedUser = repository.save(savedUser);
+
+        // Generate access token with roles
+        var jwtToken = generateAccessToken(savedUser);
+
         saveUserToken(savedUser, jwtToken);
 
-        long expirationTime = jwtService.extractExpiration(jwtToken).getTime();
-        long currentTime = System.currentTimeMillis();
-        long expiresInSeconds = (expirationTime - currentTime) / 1000;
-
-        return AuthenticationResponse.builder()
-                .accessToken(jwtToken)
-                .user(savedUser)
-                .tokenType("Bearer")
-                .expiresIn(expiresInSeconds)
-                .build();
+        return buildAuthResponse(jwtToken, null, savedUser);
     }
 
     @Transactional
     public AuthenticationResponse authenticate(LoginRequest request) {
+        System.out.println("Authenticating user: " + request.getUsername());
+
         var auth = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
+                new UsernamePasswordAuthenticationToken(
+                        request.getUsername(),
+                        request.getPassword()
+                )
         );
 
         var user = (User) auth.getPrincipal();
+
+        // Revoke all existing tokens to prevent multiple active sessions
         revokeAllUserTokens(user);
-        var jwtToken = jwtService.generateToken(user);
+
+        // Generate new access token with roles
+        var jwtToken = generateAccessToken(user);
+
+        // Save the new access token
         saveUserToken(user, jwtToken);
 
-        long expirationTime = jwtService.extractExpiration(jwtToken).getTime();
+        System.out.println("Authentication successful for user: " + user.getUsername());
+        System.out.println("User roles: " + user.getRoleNames());
+
+        return buildAuthResponse(jwtToken, null, user);
+    }
+
+    // Simplified refresh token method - you can implement later if needed
+    @Transactional
+    public AuthenticationResponse refreshToken(String refreshToken) {
+        // For now, just return an error - implement later when you add refresh token support
+        throw new RuntimeException("Refresh token functionality not implemented yet");
+    }
+
+    @Transactional
+    public void logout(String token) {
+        var storedToken = tokenRepository.findByToken(token).orElse(null);
+        if (storedToken != null) {
+            storedToken.setExpired(true);
+            storedToken.setRevoked(true);
+            tokenRepository.save(storedToken);
+        }
+    }
+
+    public boolean validateToken(String token) {
+        try {
+            var storedToken = tokenRepository.findByToken(token);
+            if (storedToken.isPresent()) {
+                var tokenEntity = storedToken.get();
+                if (tokenEntity.isExpired() || tokenEntity.isRevoked()) {
+                    return false;
+                }
+
+                String username = jwtService.extractUsername(token);
+                var userDetails = userDetailsService.loadUserByUsername(username);
+                return jwtService.isTokenValid(token, userDetails);
+            }
+            return false;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private String generateAccessToken(User user) {
+        Map<String, Object> extraClaims = new HashMap<>();
+        if (user.getRoles() != null && !user.getRoles().isEmpty()) {
+            extraClaims.put("roles", user.getRoles().stream()
+                    .map(Role::getName)
+                    .toList());
+        }
+        extraClaims.put("userId", user.getId());
+        extraClaims.put("email", user.getEmail());
+
+        return jwtService.generateToken(extraClaims, user);
+    }
+
+    private AuthenticationResponse buildAuthResponse(String accessToken, String refreshToken, User user) {
+        long expirationTime = jwtService.extractExpiration(accessToken).getTime();
         long currentTime = System.currentTimeMillis();
         long expiresInSeconds = (expirationTime - currentTime) / 1000;
 
-        User userWithRoles = repository.findByUsername(user.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
         return AuthenticationResponse.builder()
-                .accessToken(jwtToken)
-                .user(userWithRoles)
+                .accessToken(accessToken)
+                .refreshToken(refreshToken) // Will be null for now
                 .tokenType("Bearer")
+                .user(user)
                 .expiresIn(expiresInSeconds)
                 .build();
     }
@@ -117,12 +189,15 @@ public class AuthenticationService {
     @Transactional
     private void revokeAllUserTokens(User user) {
         var validUserTokens = tokenRepository.findAllValidTokenByUser(user.getId());
-        if (validUserTokens.isEmpty()) return;
+        if (validUserTokens.isEmpty()) {
+            return;
+        }
 
         validUserTokens.forEach(token -> {
             token.setExpired(true);
             token.setRevoked(true);
         });
+
         tokenRepository.saveAll(validUserTokens);
         tokenRepository.flush();
     }

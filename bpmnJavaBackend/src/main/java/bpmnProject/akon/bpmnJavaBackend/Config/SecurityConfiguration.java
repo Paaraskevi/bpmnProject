@@ -1,13 +1,9 @@
 package bpmnProject.akon.bpmnJavaBackend.Config;
 
-import bpmnProject.akon.bpmnJavaBackend.User.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -26,13 +22,12 @@ import java.util.List;
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
-@EnableMethodSecurity(prePostEnabled = true)
+@EnableMethodSecurity
 public class SecurityConfiguration {
 
     private final JwtAuthenticationFilter jwtAuthFilter;
     private final AuthenticationProvider authenticationProvider;
     private final LogoutHandler logoutHandler;
-    private final UserService userService;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -42,6 +37,7 @@ public class SecurityConfiguration {
                 .authorizeHttpRequests(req ->
                         req.requestMatchers(
                                         "/api/v1/auth/**",
+                                        "/api/v1/test/public",
                                         "/v2/api-docs",
                                         "/v3/api-docs",
                                         "/v3/api-docs/**",
@@ -53,14 +49,9 @@ public class SecurityConfiguration {
                                         "/webjars/**",
                                         "/swagger-ui.html"
                                 ).permitAll()
-                                // Role-based access control
-                                .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
-                                .requestMatchers("/api/v1/diagrams/edit/**").hasAnyRole("ADMIN", "MODELER")
-                                .requestMatchers("/api/v1/diagrams/view/**").hasAnyRole("ADMIN", "MODELER", "VIEWER")
-                                .requestMatchers("/api/v1/users/roles").hasRole("ADMIN")
-                                .requestMatchers("/api/v1/users/{userId}/roles").hasRole("ADMIN")
-                                .requestMatchers("/api/v1/users/{userId}").hasAnyRole("ADMIN", "MODELER")
-                                .requestMatchers("/api/v1/users").hasAnyRole("ADMIN", "MODELER")
+                                .requestMatchers("/api/v1/test/admin/**").hasAnyRole("ADMIN")
+                                .requestMatchers("/api/v1/test/modeler/**").hasAnyRole("MODELER", "ADMIN")
+                                .requestMatchers("/api/v1/test/viewer/**").hasAnyRole("VIEWER", "MODELER", "ADMIN")
                                 .anyRequest()
                                 .authenticated()
                 )
@@ -80,9 +71,10 @@ public class SecurityConfiguration {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOriginPatterns(List.of("*"));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
+        configuration.setExposedHeaders(List.of("Authorization"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

@@ -1,8 +1,6 @@
 package bpmnProject.akon.bpmnJavaBackend.Config;
 
-import bpmnProject.akon.bpmnJavaBackend.User.User;
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwt;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
@@ -13,9 +11,10 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import java.security.Key;
-import java.util.*;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 @Service
@@ -23,19 +22,15 @@ public class JwtService {
 
     @Value("${application.security.jwt.secret-key}")
     private String secretKey;
+
     @Value("${application.security.jwt.expiration}")
     private long jwtExpiration;
+
     @Value("${application.security.jwt.refresh-token.expiration}")
     private long refreshExpiration;
 
     public String extractUsername(String token) {
-
         return extractClaim(token, Claims::getSubject);
-    }
-
-    public List<String> extractRoles(String token){
-        Claims claims = extractAllClaims(token);
-        return (List<String>) claims.get("roles");
     }
 
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
@@ -44,30 +39,15 @@ public class JwtService {
     }
 
     public String generateToken(UserDetails userDetails) {
-        Map<String, Object> extraClaims = new HashMap<>();
-        if (userDetails instanceof User) {
-            User user = (User) userDetails;
-            List<String> roleNames = user.getRoles().stream()
-                    .map(role -> role.getName())
-                    .collect(Collectors.toList());
-            extraClaims.put("roles", roleNames);
-            extraClaims.put("Id", user.getId());
-            extraClaims.put("email", user.getEmail());
-        }
-        return  generateToken(extraClaims,userDetails);
-//        return Jwts.builder()
-//                .setSubject(userDetails.getUsername())
-//                .setIssuedAt(new Date())
-//                .setExpiration(new Date((new Date()).getTime() + jwtExpiration))
-//                .signWith(SignatureAlgorithm.HS256, secretKey)
-//                .compact();
+        return generateToken(new HashMap<>(), userDetails);
     }
 
-    public String generateToken(
-            Map<String, Object> extraClaims,
-            UserDetails userDetails
-    ) {
+    public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
         return buildToken(extraClaims, userDetails, jwtExpiration);
+    }
+
+    public String generateRefreshToken(UserDetails userDetails) {
+        return buildToken(new HashMap<>(), userDetails, refreshExpiration);
     }
 
     private String buildToken(
@@ -111,5 +91,4 @@ public class JwtService {
         byte[] keyBytes = Decoders.BASE64.decode(secretKey);
         return Keys.hmacShaKeyFor(keyBytes);
     }
-
 }
