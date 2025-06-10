@@ -1,9 +1,10 @@
 export interface AppFile {
-    shortLink: string;
-    id: number;
-    fileName: string;
-    fileType: string;
-    fileSize: number;
-    uploadTime: string;
-    content: string;
-  }
+    id?: number;
+    fileName?: string;
+    fileType?: string;
+    fileSize?: number;
+    uploadTime?: string;
+    content?: string;
+    shortLink?: string;
+    base64Data?: string;
+}
