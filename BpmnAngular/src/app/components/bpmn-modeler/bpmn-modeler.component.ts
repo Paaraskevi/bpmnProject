@@ -4,7 +4,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
-
+import { DownloadService } from '../../services/download.service';
 // Import BPMN.js (after npm install bpmn-js)
 import BpmnModeler from 'bpmn-js/lib/Modeler';
 import BpmnViewer from 'bpmn-js/lib/Viewer';
@@ -75,7 +75,8 @@ export class BpmnModelerComponent implements OnInit, AfterViewInit, OnDestroy {
 
   constructor(
     private authService: AuthenticationService,
-    private bpmnService: BpmnService
+    private bpmnService: BpmnService,
+    private downloadService: DownloadService
   ) {}
 
   ngOnInit(): void {
@@ -260,18 +261,28 @@ export class BpmnModelerComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.modeler) return;
 
     // Type guard to check if modeler has saveXML method
-    if ('saveXML' in this.modeler) {
-      this.modeler.saveXML({ format: true })
-        .then((result: any) => {
-          const xml = result.xml;
-          this.downloadXml(xml, 'diagram.bpmn');
-        })
-        .catch((error: any) => {
-          console.error('Error saving diagram:', error);
-        });
-    } else {
-      alert('Cannot save in viewer mode.');
-    }
+    // if ('saveXML' in this.modeler) {
+    //   this.modeler.saveXML({ format: true })
+    //     .then((result: any) => {
+    //       const xml = result.xml;
+    //       this.downloadXml(xml, 'diagram.bpmn');
+    //     })
+    //     .catch((error: any) => {
+    //       console.error('Error saving diagram:', error);
+    //     });
+    // } else {
+    //   alert('Cannot save in viewer mode.');
+    // }
+
+    this.downloadService.downloadPdf().subscribe(response => {
+      const blob = new Blob([response.body], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'export.pdf';
+      link.click();
+      URL.revokeObjectURL(url);
+    });
   }
 
   private downloadXml(xml: string, filename: string): void {

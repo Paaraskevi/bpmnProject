@@ -46,4 +46,10 @@ public class FileService {
         return fileRepo.findById(id)
                 .orElseThrow(() -> new RuntimeException("File with ID " + id + " not found"));
     }
+
+    public byte[] convertBpmnToPdf(File file) {
+        System.out.println("Converting BPMN file at " );
+
+        return null;
+    }
 }
