@@ -44,12 +44,15 @@ public class AuthenticationService {
         // Get roles from role names - fetch from database to ensure managed entities
         Set<Role> roles = new HashSet<>();
         if (request.getRoleNames() != null && !request.getRoleNames().isEmpty()) {
+            System.out.println("Assigning roles: " + request.getRoleNames());
             for (String roleName : request.getRoleNames()) {
+                String fullRoleName = roleName.startsWith("ROLE_") ? roleName : "ROLE_" + roleName;
                 Role role = roleRepository.findByName(roleName)
                         .orElseThrow(() -> new RuntimeException("Role not found: " + roleName));
                 roles.add(role);
             }
         } else {
+            System.out.println("No roles specified, assigning default viewer role");
             // Default role if none specified
             Role viewerRole = roleRepository.findByName(Role.ROLE_VIEWER)
                     .orElseThrow(() -> new RuntimeException("Default role not found"));
@@ -63,7 +66,7 @@ public class AuthenticationService {
                 .username(request.getUsername())
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .roles(new HashSet<>()) // Start with empty roles
+                .roles(new HashSet<>())
                 .tokens(new ArrayList<>())
                 .build();
 
@@ -78,7 +81,7 @@ public class AuthenticationService {
 
         // Generate access token with roles
         var jwtToken = generateAccessToken(savedUser);
-
+        System.out.println("User created with roles: " + savedUser.getRoleNames());
         saveUserToken(savedUser, jwtToken);
 
         return buildAuthResponse(jwtToken, null, savedUser);
@@ -88,28 +91,42 @@ public class AuthenticationService {
     public AuthenticationResponse authenticate(LoginRequest request) {
         System.out.println("Authenticating user: " + request.getUsername());
 
-        var auth = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.getUsername(),
-                        request.getPassword()
-                )
-        );
+        try {
+            var auth = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            request.getUsername(),
+                            request.getPassword()
+                    )
+            );
 
-        var user = (User) auth.getPrincipal();
+            var user = (User) auth.getPrincipal();
+            System.out.println("Authentication successful, loading user with roles...");
 
-        // Revoke all existing tokens to prevent multiple active sessions
-        revokeAllUserTokens(user);
+            // Φόρτωση χρήστη με roles από τη βάση δεδομένων
+            var userWithRoles = repository.findByEmailOrUsernameWithRoles(user.getUsername())
+                    .orElseThrow(() -> new RuntimeException("User not found after authentication"));
 
-        // Generate new access token with roles
-        var jwtToken = generateAccessToken(user);
+            System.out.println("User loaded with roles: " + userWithRoles.getRoleNames());
 
-        // Save the new access token
-        saveUserToken(user, jwtToken);
+            // Revoke all existing tokens to prevent multiple active sessions
+            revokeAllUserTokens(userWithRoles);
 
-        System.out.println("Authentication successful for user: " + user.getUsername());
-        System.out.println("User roles: " + user.getRoleNames());
+            // Generate new access token with roles
+            var jwtToken = generateAccessToken(userWithRoles);
 
-        return buildAuthResponse(jwtToken, null, user);
+            // Save the new access token
+            saveUserToken(userWithRoles, jwtToken);
+
+            System.out.println("Authentication successful for user: " + userWithRoles.getUsername());
+            System.out.println("User roles: " + userWithRoles.getRoleNames());
+
+            return buildAuthResponse(jwtToken, null, userWithRoles);
+
+        } catch (Exception e) {
+            System.err.println("Authentication failed for user: " + request.getUsername() + " - " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
     }
 
     // Simplified refresh token method - you can implement later if needed

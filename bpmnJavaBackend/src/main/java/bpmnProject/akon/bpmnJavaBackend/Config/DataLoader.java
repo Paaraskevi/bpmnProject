@@ -122,34 +122,5 @@ public class DataLoader implements CommandLineRunner {
             savedViewer.printAccountStatus(); // Debug
             System.out.println("Created viewer user: viewer/viewer123");
         }
-
-        // Create a user with multiple roles for testing
-        if (userRepository.findByUsername("multiuser").isEmpty()) {
-            Role adminRole = roleRepository.findByName(Role.ROLE_ADMIN)
-                    .orElseThrow(() -> new RuntimeException("Admin role not found"));
-            Role modelerRole = roleRepository.findByName(Role.ROLE_MODELER)
-                    .orElseThrow(() -> new RuntimeException("Modeler role not found"));
-
-            User multiUser = User.builder()
-                    .username("multiuser")
-                    .email("multiuser@example.com")
-                    .firstname("Multi")
-                    .lastname("User")
-                    .password(passwordEncoder.encode("multi123"))
-                    .enabled(true)
-                    .accountNonExpired(true)
-                    .accountNonLocked(true)
-                    .credentialsNonExpired(true)
-                    .roles(new HashSet<>())
-                    .build();
-
-            User savedMultiUser = userRepository.save(multiUser);
-            savedMultiUser.getRoles().add(adminRole);
-            savedMultiUser.getRoles().add(modelerRole);
-            savedMultiUser = userRepository.save(savedMultiUser);
-
-            savedMultiUser.printAccountStatus(); // Debug
-            System.out.println("Created multi-role user: multiuser/multi123");
-        }
     }
 }

@@ -19,6 +19,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static java.util.Arrays.stream;
+
 @Service
 @RequiredArgsConstructor
 public class UserService implements UserDetailsService {
@@ -28,18 +30,25 @@ public class UserService implements UserDetailsService {
     private final RoleRepository roleRepository;
 
     @Override
+    @Transactional(readOnly = true)
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        System.out.println("Loading user by username: " + username);
 
-        Optional<User> user = userRepository.findByUsername(username);
-        if (user.isPresent()) {
-            var userObj = user.get();
-            return User.builder()
-                    .username(userObj.getUsername())
-                    .password(userObj.getPassword())
-                    .build();
-        }else{
-            throw new UsernameNotFoundException(username);
-        }
+        User user = userRepository.findByEmailOrUsernameWithRoles(username)
+                .orElseThrow(() -> {
+                    System.out.println("User not found: " + username);
+                    // Debug: Let's see what users exist
+                    List<Object[]> allUsers = userRepository.findAllUsernamesAndEmails();
+                    System.out.println("Available users in database:");
+                    for (Object[] userData : allUsers) {
+                        System.out.println("Username: " + userData[0] + ", Email: " + userData[1] + ", Enabled: " + userData[2]);
+                    }
+                    return new UsernameNotFoundException("User not found: " + username);
+                });
+
+        System.out.println("User found: " + user.getUsername() + " with roles: " + user.getRoleNames());
+        user.printAccountStatus(); // Debug method
+        return user;
     }
 
     public void changePassword(ChangePasswordRequest request, Principal connectedUser) {
@@ -61,17 +70,22 @@ public class UserService implements UserDetailsService {
         userRepository.save(user);
     }
 
+    @Transactional(readOnly = true)
     public UserDto getCurrentUser(Principal connectedUser) {
         var user = (User) ((UsernamePasswordAuthenticationToken) connectedUser).getPrincipal();
-        return convertToDto(user);
+        var userWithRoles = userRepository.findByEmailOrUsernameWithRoles(user.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return convertToDto(userWithRoles);
     }
 
+    @Transactional(readOnly = true)
     public List<UserDto> getAllUsers() {
         return userRepository.findAll().stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public UserDto getUserById(Integer userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -84,12 +98,19 @@ public class UserService implements UserDetailsService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         Set<Role> roles = roleNames.stream()
-                .map(roleName -> roleRepository.findByName(roleName)
-                        .orElseThrow(() -> new RuntimeException("Role not found: " + roleName)))
+                .map(roleName -> {
+                    // Αν το role name δεν αρχίζει με ROLE_, πρόσθεσέ το
+                    String fullRoleName = roleName.startsWith("ROLE_") ? roleName : "ROLE_" + roleName.toUpperCase();
+                    return roleRepository.findByName(fullRoleName)
+                            .orElseThrow(() -> new RuntimeException("Role not found: " + fullRoleName));
+                })
                 .collect(Collectors.toSet());
 
         user.setRoles(roles);
         User savedUser = userRepository.save(user);
+
+        System.out.println("Updated user roles for " + user.getUsername() + ": " + savedUser.getRoleNames());
+
         return convertToDto(savedUser);
     }
 
@@ -98,11 +119,17 @@ public class UserService implements UserDetailsService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        Role role = roleRepository.findByName(roleName)
-                .orElseThrow(() -> new RuntimeException("Role not found: " + roleName));
+        // Αν το role name δεν αρχίζει με ROLE_, πρόσθεσέ το
+        String fullRoleName = roleName.startsWith("ROLE_") ? roleName : "ROLE_" + roleName.toUpperCase();
+
+        Role role = roleRepository.findByName(fullRoleName)
+                .orElseThrow(() -> new RuntimeException("Role not found: " + fullRoleName));
 
         user.getRoles().add(role);
         User savedUser = userRepository.save(user);
+
+        System.out.println("Added role " + role.getName() + " to user " + user.getUsername());
+
         return convertToDto(savedUser);
     }
 
@@ -111,11 +138,14 @@ public class UserService implements UserDetailsService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        Role role = roleRepository.findByName(roleName)
-                .orElseThrow(() -> new RuntimeException("Role not found: " + roleName));
+        // Διόρθωση: χρησιμοποίησε το σωστό όνομα ρόλου
+        String fullRoleName = roleName.startsWith("ROLE_") ? roleName : "ROLE_" + roleName.toUpperCase();
+        Role role = roleRepository.findByName(fullRoleName)
+                .orElseThrow(() -> new RuntimeException("Role not found: " + fullRoleName));
 
         user.getRoles().remove(role);
         User savedUser = userRepository.save(user);
+        System.out.println("Removed role " + role.getName() + " from user " + user.getUsername());
         return convertToDto(savedUser);
     }
 
@@ -126,6 +156,7 @@ public class UserService implements UserDetailsService {
         userRepository.deleteById(userId);
     }
 
+    @Transactional(readOnly = true)
     public List<RoleDto> getAllRoles() {
         return roleRepository.findAll().stream()
                 .map(this::convertToRoleDto)
@@ -153,6 +184,4 @@ public class UserService implements UserDetailsService {
                 .description(role.getDescription())
                 .build();
     }
-
-
 }

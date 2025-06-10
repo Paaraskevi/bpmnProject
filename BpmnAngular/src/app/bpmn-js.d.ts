@@ -6,4 +6,6 @@ declare module 'bpmn-js/lib/Modeler' {
     import { BpmnPropertiesPanelModule } from 'bpmn-js-properties-panel';
   const BpmnModeler: any;
   export default BpmnModeler;
+  const BpmnViewer: any;
+  export { BpmnViewer };
 }

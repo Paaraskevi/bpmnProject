@@ -5,7 +5,7 @@ import { AuthGuard } from './guards/auth.guard';
 import { RegisterComponent } from './components/register/register.component';
 import { LayoutComponent } from './components/layout/layout.component';
 import { BpmnModelerComponent } from './components/bpmn-modeler/bpmn-modeler.component';
-import { ListFilesComponent } from './list-files/list-files.component';
+import { ListFilesComponent } from './components/list-files/list-files.component';
 
 export const routes: Routes = [
       { path: '', redirectTo: 'login', pathMatch: 'full' },

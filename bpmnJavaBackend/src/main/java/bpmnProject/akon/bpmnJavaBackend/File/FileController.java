@@ -20,7 +20,8 @@ import java.util.List;
 
 @CrossOrigin(origins = "*")
 @RestController
-@RequestMapping("/file")
+@RequestMapping("/api/v1/file")
+
 public class FileController {
     private final FileService fileService;
     public static final String DIRECTORY = System.getProperty("user.home") + java.io.File.separator + "Downloads";
