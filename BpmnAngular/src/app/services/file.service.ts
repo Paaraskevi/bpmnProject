@@ -1,8 +1,7 @@
-// file.service.ts - Enhanced with PDF Export
-import { HttpClient, HttpResponse, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable, throwError } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { catchError, map } from 'rxjs/operators';
 import { AppFile } from '../files';
 import { AuthenticationService } from './authentication.service';
 
@@ -17,128 +16,218 @@ export class FileService {
     private authService: AuthenticationService
   ) { }
 
+  /**
+   * Upload a file to the server
+   */
   public uploadFile(file: File): Observable<AppFile> {
     const formData = new FormData();
     formData.append("file", file, file.name);
     
+    // For multipart upload, don't set Content-Type header - let browser set it
+    const headers = this.getUploadHeaders();
+    
+    console.log('Uploading file with headers:', headers.keys());
+    
     return this.http.post<AppFile>(`${this.apiServerUrl}/upload`, formData, {
-      headers: this.authService.getAuthHeaders()
-    }).pipe(
-      catchError(this.handleError)
-    );
-  }
-
-  public getFiles(): Observable<AppFile[]> {
-    return this.http.get<AppFile[]>(`${this.apiServerUrl}/all`, {
-      headers: this.authService.getAuthHeaders()
-    }).pipe(
-      catchError(this.handleError)
-    );
-  }
-
-  public deleteFile(id: number): Observable<void> {
-    return this.http.delete<void>(`${this.apiServerUrl}/delete/${id}`, {
-      headers: this.authService.getAuthHeaders()
-    }).pipe(
-      catchError(this.handleError)
-    );
-  }
-
-  public getFile(filename: string): Observable<AppFile> {
-    return this.http.get<AppFile>(`${this.apiServerUrl}/file/${filename}`, {
-      headers: this.authService.getAuthHeaders()
-    }).pipe(
-      catchError(this.handleError)
-    );
-  }
-
-  public getFileById(id: number): Observable<AppFile> {
-    return this.http.get<AppFile>(`${this.apiServerUrl}/${id}`, {
-      headers: this.authService.getAuthHeaders()
-    }).pipe(
-      catchError(this.handleError)
-    );
-  }
-
-  // NEW: Export file as PDF
-  public exportFileToPdf(fileId: number): Observable<Blob> {
-    return this.http.get(`${this.apiServerUrl}/${fileId}/export/pdf`, {
-      responseType: 'blob',
-      headers: this.authService.getAuthHeaders()
-    }).pipe(
-      catchError(this.handleError)
-    );
-  }
-
-  // NEW: Export file as PDF with metadata
-  public exportFileToPdfWithMetadata(fileId: number, metadata?: any): Observable<Blob> {
-    const headers = new HttpHeaders({
-      ...this.authService.getAuthHeaders(),
-      'Content-Type': 'application/json'
-    });
-
-    return this.http.post(`${this.apiServerUrl}/${fileId}/export/pdf`, metadata || {}, {
-      responseType: 'blob',
       headers: headers
     }).pipe(
       catchError(this.handleError)
     );
   }
 
-  // NEW: Export file in various formats
+  /**
+   * Upload BPMN content as new file
+   */
+  public uploadBpmnContent(fileName: string, content: string): Observable<AppFile> {
+    const blob = new Blob([content], { type: 'application/xml' });
+    const file = new File([blob], fileName, { type: 'application/xml' });
+    return this.uploadFile(file);
+  }
+
+  /**
+   * Get all files from server
+   */
+  public getFiles(): Observable<AppFile[]> {
+    return this.http.get<AppFile[]>(`${this.apiServerUrl}/all`, {
+      headers: this.getAuthHeaders()
+    }).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+  /**
+   * Delete file by ID
+   */
+  public deleteFile(id: number): Observable<any> {
+    return this.http.delete(`${this.apiServerUrl}/delete/${id}`, {
+      headers: this.getAuthHeaders()
+    }).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+  /**
+   * Get file by filename
+   */
+  public getFile(filename: string): Observable<AppFile> {
+    return this.http.get<AppFile>(`${this.apiServerUrl}/file/${filename}`, {
+      headers: this.getAuthHeaders()
+    }).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+  /**
+   * Get file by ID
+   */
+  public getFileById(id: number): Observable<AppFile> {
+    return this.http.get<AppFile>(`${this.apiServerUrl}/${id}`, {
+      headers: this.getAuthHeaders()
+    }).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+  /**
+   * Get file content as string
+   */
+  public getFileContent(id: number): Observable<string> {
+    return this.http.get(`${this.apiServerUrl}/${id}/content`, {
+      headers: this.getAuthHeaders(),
+      responseType: 'text'
+    }).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+  /**
+   * Export file as PDF
+   */
+  public exportFileToPdf(fileId: number): Observable<Blob> {
+    return this.http.get(`${this.apiServerUrl}/${fileId}/export/pdf`, {
+      responseType: 'blob',
+      headers: this.getAuthHeaders()
+    }).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+  /**
+   * Export file as PDF with metadata
+   */
+  public exportFileToPdfWithMetadata(fileId: number, metadata?: any): Observable<Blob> {
+    return this.http.post(`${this.apiServerUrl}/${fileId}/export/pdf`, metadata || {}, {
+      responseType: 'blob',
+      headers: this.getAuthHeaders()
+    }).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+  /**
+   * Export file in various formats
+   */
   public exportFile(fileId: number, format: 'xml' | 'svg' | 'png' | 'pdf'): Observable<Blob> {
     return this.http.get(`${this.apiServerUrl}/${fileId}/export/${format}`, {
       responseType: 'blob',
-      headers: this.authService.getAuthHeaders()
+      headers: this.getAuthHeaders()
     }).pipe(
       catchError(this.handleError)
     );
   }
 
-  // Enhanced download with proper headers
-  public downloadFile(fileName: string): Observable<Blob> {
-    const url = `${this.apiServerUrl}/download/${encodeURIComponent(fileName)}`;
-    return this.http.get(url, { 
+  /**
+   * Download file as blob
+   */
+  public downloadFile(fileId: number): Observable<Blob> {
+    return this.http.get(`${this.apiServerUrl}/${fileId}/download`, {
       responseType: 'blob',
-      headers: this.authService.getAuthHeaders()
+      headers: this.getAuthHeaders()
     }).pipe(
       catchError(this.handleError)
     );
   }
 
-  // NEW: Validate BPMN file
+  /**
+   * Validate BPMN file
+   */
   public validateBpmnFile(fileId: number): Observable<{valid: boolean; errors?: string[]; warnings?: string[]}> {
     return this.http.post<{valid: boolean; errors?: string[]; warnings?: string[]}>(`${this.apiServerUrl}/${fileId}/validate`, {}, {
-      headers: this.authService.getAuthHeaders()
+      headers: this.getAuthHeaders()
     }).pipe(
       catchError(this.handleError)
     );
   }
 
-  // NEW: Get file preview/thumbnail
+  /**
+   * Get file preview/thumbnail
+   */
   public getFilePreview(fileId: number): Observable<Blob> {
     return this.http.get(`${this.apiServerUrl}/${fileId}/preview`, {
       responseType: 'blob',
-      headers: this.authService.getAuthHeaders()
+      headers: this.getAuthHeaders()
     }).pipe(
       catchError(this.handleError)
     );
   }
 
-  // Legacy method for PDF download (keeping for backward compatibility)
-  downloadPdf(): Observable<HttpResponse<Blob>> {
-    return this.http.post('url-to-pdf-api', {}, { 
-      responseType: 'blob', 
-      observe: 'response',
-      headers: this.authService.getAuthHeaders()
+  /**
+   * Update existing file content
+   */
+  public updateFileContent(fileId: number, content: string): Observable<AppFile> {
+    const blob = new Blob([content], { type: 'application/xml' });
+    const file = new File([blob], 'updated_file.bpmn', { type: 'application/xml' });
+    
+    const formData = new FormData();
+    formData.append("file", file);
+    
+    return this.http.put<AppFile>(`${this.apiServerUrl}/${fileId}`, formData, {
+      headers: this.getUploadHeaders()
     }).pipe(
       catchError(this.handleError)
     );
   }
 
-  // Error handling
-  private handleError = (error: any): Observable<never> => {
+  /**
+   * Get authentication headers for JSON requests
+   */
+  private getAuthHeaders(): HttpHeaders {
+    const token = this.authService.getToken();
+    let headers = new HttpHeaders();
+
+    if (token) {
+      headers = headers.set('Authorization', `Bearer ${token}`);
+    }
+
+    // Don't set Content-Type for requests that might need different content types
+    return headers;
+  }
+
+  /**
+   * Get headers for file upload (multipart form data)
+   */
+  private getUploadHeaders(): HttpHeaders {
+    const token = this.authService.getToken();
+    let headers = new HttpHeaders();
+
+    if (token) {
+      headers = headers.set('Authorization', `Bearer ${token}`);
+    }
+
+    // Don't set Content-Type for multipart form data - let the browser set it
+    return headers;
+  }
+
+  /**
+   * Error handling with detailed logging
+   */
+  private handleError = (error: HttpErrorResponse): Observable<never> => {
     let errorMessage = 'An error occurred while processing the file';
+    
+    console.error('Full error object:', error);
+    console.error('Error status:', error.status);
+    console.error('Error message:', error.message);
+    console.error('Error body:', error.error);
     
     if (error.error instanceof ErrorEvent) {
       // Client-side error
@@ -148,10 +237,14 @@ export class FileService {
       switch (error.status) {
         case 401:
           errorMessage = 'Unauthorized - please log in again';
+          console.error('Authentication failed - redirecting to login');
           this.authService.logout();
           break;
         case 403:
           errorMessage = 'Forbidden - insufficient permissions';
+          console.error('Permission denied. Check user roles and endpoint security configuration.');
+          console.error('Current user token:', this.authService.getToken() ? 'Present' : 'Missing');
+          console.error('User roles:', this.authService.getUserRoles());
           break;
         case 404:
           errorMessage = 'File not found';
@@ -169,11 +262,17 @@ export class FileService {
           errorMessage = 'Server error - please try again later';
           break;
         default:
-          errorMessage = error.error?.message || `Error: ${error.status}`;
+          if (error.error?.message) {
+            errorMessage = error.error.message;
+          } else if (error.message) {
+            errorMessage = error.message;
+          } else {
+            errorMessage = `Error: ${error.status} - ${error.statusText}`;
+          }
       }
     }
     
-    console.error('File Service Error:', error);
+    console.error('File Service Error:', errorMessage);
     return throwError(() => new Error(errorMessage));
   };
 }

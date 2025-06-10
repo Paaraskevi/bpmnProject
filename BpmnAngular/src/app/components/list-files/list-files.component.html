@@ -110,8 +110,8 @@
 
           <!-- Delete action - only for admins -->
           <button class="action-btn delete-btn" 
-                  *ngIf="canDeleteFile(file)"
-                  (click)="deleteFile(file.id)" 
+                  *ngIf="canDeleteFile(file) && file.id !== undefined"
+                  (click)="deleteFile(file.id!)" 
                   title="Delete file">
             <i data-feather="trash-2"></i>
           </button>
@@ -179,7 +179,7 @@
           <div class="mini-spinner" *ngIf="isExportingFile(file)"></div>
           {{ isExportingFile(file) ? 'Exporting...' : 'Export PDF' }}
         </button>
-        
+
         <!-- View-only indicator -->
         <span class="readonly-badge" *ngIf="isViewerOnly">
           <i data-feather="eye"></i>

@@ -1,12 +1,11 @@
-import { Component, ViewChild, ElementRef, OnInit } from '@angular/core';
+import { Component, ViewChild, ElementRef, OnInit, OnDestroy } from '@angular/core';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FileService } from '../../services/file.service';
 import { AppFile } from '../../files';
 import feather from 'feather-icons';
 import { AuthenticationService, User } from '../../services/authentication.service';
-import { Subject, take, takeUntil } from 'rxjs';
-import { BpmnService } from '../../services/bpmn.service';
+import { Subject, takeUntil } from 'rxjs';
 
 @Component({
   selector: 'app-list-files',
@@ -15,60 +14,68 @@ import { BpmnService } from '../../services/bpmn.service';
   templateUrl: './list-files.component.html',
   styleUrl: './list-files.component.css'
 })
-export class ListFilesComponent implements OnInit {
+export class ListFilesComponent implements OnInit, OnDestroy {
   @ViewChild('listfiles', { static: true }) listfiles!: ElementRef;
+  
   appFile: AppFile[] = [];
-  selectedFile: File | null = null;
   isLoading = true;
-
-  constructor(
-    private fileService: FileService,
-    private bpmnService: BpmnService,
-    public authenticationService: AuthenticationService,
-    private router: Router
-  ) { }
   currentUser: User | null = null;
+  
+  // Permission flags
   canView: boolean = false;
   canEdit: boolean = false;
   canDelete: boolean = false;
   canCreate: boolean = false;
   isViewerOnly: boolean = false;
 
+  // Export states
   isExporting = false;
   exportingFileId: number | null = null;
 
   private destroy$ = new Subject<void>();
 
+  constructor(
+    private fileService: FileService,
+    public authenticationService: AuthenticationService,
+    private router: Router
+  ) { }
+
   ngOnInit() {
-    this.initialisePermissions();
-    this.authenticationService.currentUser$.pipe(takeUntil(this.destroy$))
+    this.initializePermissions();
+    this.authenticationService.currentUser$
+      .pipe(takeUntil(this.destroy$))
       .subscribe((user: User | null) => {
         this.currentUser = user;
-        this.initialisePermissions();
+        this.initializePermissions();
       });
 
+    // Initialize feather icons
     setTimeout(() => {
       if (typeof feather !== 'undefined') {
         feather.replace();
       }
     }, 100);
+
     if (this.canView) {
-      this.getFiles()
+      this.getFiles();
     } else {
       this.isLoading = false;
     }
   }
+
   ngOnDestroy() {
     this.destroy$.next();
     this.destroy$.complete();
   }
-  private initialisePermissions(): void {
+
+  private initializePermissions(): void {
     this.currentUser = this.authenticationService.getCurrentUser();
-    //set permissions based on user roles
+    
+    // Set permissions based on user roles
     this.canView = this.authenticationService.canView();
     this.canEdit = this.authenticationService.canEdit();
-    this.canCreate = this.authenticationService.canEdit(); // Same as edit for now
-    this.canDelete = this.authenticationService.isAdmin(); // Only admins can delete
+    this.canCreate = this.authenticationService.canEdit();
+    this.canDelete = this.authenticationService.isAdmin();
 
     // Check if user is viewer only
     this.isViewerOnly = this.authenticationService.isViewer() &&
@@ -92,10 +99,11 @@ export class ListFilesComponent implements OnInit {
     }
 
     this.isLoading = true;
-    this.fileService.getFiles().subscribe(
-      (response: AppFile[]) => {
+    this.fileService.getFiles().subscribe({
+      next: (response: AppFile[]) => {
         this.appFile = response;
         this.isLoading = false;
+        
         // Refresh feather icons after data loads
         setTimeout(() => {
           if (typeof feather !== 'undefined') {
@@ -103,89 +111,92 @@ export class ListFilesComponent implements OnInit {
           }
         }, 100);
       },
-      (error: any) => {
+      error: (error: any) => {
         console.error('Error fetching files:', error);
         this.isLoading = false;
+        this.showMessage('Error loading files: ' + error.message, 'error');
       }
-    );
+    });
   }
 
   deleteFile(id: number): void {
-
     if (!this.canDelete) {
-      alert('You do not have permission to delete files.');
+      this.showMessage('You do not have permission to delete files.', 'error');
       return;
     }
 
     if (confirm('Are you sure you want to delete this file? This action cannot be undone.')) {
-      this.fileService.deleteFile(id).subscribe(
-        () => {
+      this.fileService.deleteFile(id).subscribe({
+        next: () => {
           this.appFile = this.appFile.filter(file => file.id !== id);
-          // Show success message (you can implement a toast service)
-          console.log('File deleted successfully');
+          this.showMessage('File deleted successfully', 'success');
         },
-        (error: any) => {
+        error: (error: any) => {
           console.error('Error deleting file:', error);
-          alert('Error deleting file. Please try again.');
+          this.showMessage('Error deleting file: ' + error.message, 'error');
         }
-      );
+      });
     }
   }
 
   openFile(file: AppFile): void {
     if (!this.canView) {
-      alert('You do not have permission to view files.');
+      this.showMessage('You do not have permission to view files.', 'error');
       return;
     }
+
+    // Navigate to BPMN modeler with file data
     const queryParams: any = {
       fileId: file.id,
+      fileName: file.fileName,
       mode: this.isViewerOnly ? 'view' : 'edit'
     };
 
-    this.router.navigate(['/app/modeler'], {
+    this.router.navigate(['/modeler'], {
       queryParams: queryParams
     });
   }
 
   downloadFile(file: AppFile): void {
     if (!this.canView) {
-      alert('You do not have permission to download files.');
+      this.showMessage('You do not have permission to download files.', 'error');
       return;
     }
-    if (file.content) {
-      const blob = new Blob([file.content], { type: 'application/xml' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${file.fileName || 'diagram'}.bpmn`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-      this.showMessage('File downloaded successfully', 'success');
-    } else {
-      alert('File content is not available for download.');
-    }
+
+    this.fileService.downloadFile(file.id!).subscribe({
+      next: (blob: Blob) => {
+        this.downloadBlob(blob, file.fileName || 'diagram.bpmn');
+        this.showMessage('File downloaded successfully', 'success');
+      },
+      error: (error: any) => {
+        console.error('Error downloading file:', error);
+        this.showMessage('Error downloading file: ' + error.message, 'error');
+      }
+    });
   }
+
   exportToPdf(file: AppFile): void {
     if (!this.canView) {
-      alert('You do not have permission to export files.');
+      this.showMessage('You do not have permission to export files.', 'error');
       return;
     }
-    if (!file.content) {
-      alert('File content is not available for export.');
+
+    if (!file.id) {
+      this.showMessage('Invalid file ID', 'error');
       return;
     }
+
     this.isExporting = true;
     this.exportingFileId = file.id;
 
-    this.bpmnService.exportDiagram(file.id, 'pdf').subscribe({
+    this.fileService.exportFileToPdf(file.id).subscribe({
       next: (pdfBlob: Blob) => {
-        this.downloadPdfBlob(pdfBlob, file.fileName || 'diagram');
+        this.downloadBlob(pdfBlob, (file.fileName || 'diagram').replace(/\.(bpmn|xml)$/, '') + '.pdf');
         this.showMessage('File exported to PDF successfully', 'success');
-      }, error: (error: any) => {
+      },
+      error: (error: any) => {
         console.error('Error exporting file to PDF:', error);
-        alert('Error exporting file to PDF. Please try again.');
+        this.showMessage('Error exporting file to PDF: ' + error.message, 'error');
       },
       complete: () => {
         this.isExporting = false;
@@ -194,42 +205,27 @@ export class ListFilesComponent implements OnInit {
     });
   }
 
-  private exportpdfFallback(file: AppFile): void {
-    this.fileService.exportFileToPdf(file.id).subscribe({
-      next: (pdfBLob: Blob) => {
-        this.downloadPdfBlob(pdfBLob, file.fileName || 'diagram');
-        this.showMessage('PDF exported successfully', 'success');
-      },
-      error: (error: any) => {
-        console.error('Error exporting file to PDF:', error);
-        this.showMessage('Error exporting file to PDF. Please try again.', 'error');
-      },
-      complete: () => {
-        this.isExporting = false;
-        this.exportingFileId = null;
-      }
-    });
-  }
-  private downloadPdfBlob(pdfBlob: Blob, fileName: string): void {
-      const url = window.URL.createObjectURL(pdfBlob); 
-      const d = document.createElement('d');
-      d.href = url;
-      d.download = `${fileName}.pdf`;
-      document.click(d);
-      document.body.removeChild(d);
-      window
+  private downloadBlob(blob: Blob, fileName: string): void {
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
   }
 
   navigateToModeler(): void {
     if (!this.canCreate) {
-      alert('You do not have permission to create new files.');
+      this.showMessage('You do not have permission to create new files.', 'error');
       return;
     }
-    this.router.navigateByUrl('/app/modeler');
+    this.router.navigateByUrl('/modeler');
   }
 
   navigateToDashboard(): void {
-    this.router.navigateByUrl('/app/dashboard');
+    this.router.navigateByUrl('/dashboard');
   }
 
   formatFileSize(bytes: number): string {
@@ -250,9 +246,15 @@ export class ListFilesComponent implements OnInit {
       minute: '2-digit'
     });
   }
+
   canEditFile(file: AppFile): boolean {
-    if (!this.authenticationService.isAdmin()) return true;
-    if (this.authenticationService.isModeler()) { return false; }
+    // Admin can edit all files, modelers can edit their own or public files
+    if (this.authenticationService.isAdmin()) {
+      return true;
+    }
+    if (this.authenticationService.isModeler()) {
+      return true; // For now, allow all modelers to edit files
+    }
     return false;
   }
 
@@ -263,6 +265,19 @@ export class ListFilesComponent implements OnInit {
   canDownloadFile(file: AppFile): boolean {
     return this.canView;
   }
+
+  canExportFile(file: AppFile): boolean {
+    return !(this.canView && !!file.content && (
+      file.fileName?.endsWith('.bpmn') || 
+      file.fileName?.endsWith('.xml') || 
+      file.fileType?.includes('xml')
+    ));
+  }
+
+  isExportingFile(file: AppFile): boolean {
+    return this.isExporting && this.exportingFileId === file.id;
+  }
+
   get currentUserRole(): string {
     if (this.authenticationService.isAdmin()) return 'Administrator';
     if (this.authenticationService.isModeler()) return 'Modeler';
@@ -282,7 +297,6 @@ export class ListFilesComponent implements OnInit {
   }
 
   private showMessage(message: string, type: 'success' | 'error' | 'warning' = 'success'): void {
-    // Simple message display - you can replace this with a proper toast service
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${type}`;
     messageDiv.textContent = message;
@@ -301,7 +315,9 @@ export class ListFilesComponent implements OnInit {
     document.body.appendChild(messageDiv);
 
     setTimeout(() => {
-      document.body.removeChild(messageDiv);
+      if (document.body.contains(messageDiv)) {
+        document.body.removeChild(messageDiv);
+      }
     }, 3000);
   }
 }

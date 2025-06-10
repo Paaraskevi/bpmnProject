@@ -1,66 +1,99 @@
 package bpmnProject.akon.bpmnJavaBackend.File;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
-import java.util.Arrays;
 
-@Table(name="files")
-@RestController
-@RequestMapping("/file")
+@Table(name = "files")
 @Entity
-
+@Getter
+@Setter
+@Data
 public class File implements Serializable {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "file_name")
     private String fileName;
+
+    @Column(name = "file_type")
     private String fileType;
+
+    @Column(name = "file_size")
     private Long fileSize;
-    private String base64Data;
 
-    @Lob
-    private byte[] data;
-
+    @Column(name = "upload_time")
     private LocalDateTime uploadTime;
 
+    // Store file data as binary in database
+    @Lob
+    @Column(name = "file_data", columnDefinition = "LONGBLOB")
+    @JsonIgnore // Don't serialize raw data in JSON
+    private byte[] data;
+
+    // Transient field for base64 representation (not stored in DB)
+    @Transient
+    private String base64Data;
+
+    // Short link for file access (optional)
+    @Column(name = "short_link")
+    private String shortLink;
+
+    // Content preview for frontend (transient)
+    @Transient
+    private String content;
+
+    // Default constructor
     public File() {}
 
+    // Constructor with parameters
     public File(String fileName, String fileType, Long fileSize, byte[] data, LocalDateTime uploadTime) {
         this.fileName = fileName;
         this.fileType = fileType;
         this.fileSize = fileSize;
         this.data = data;
         this.uploadTime = uploadTime;
-
     }
 
-    // Getters and Setters
+    public void setData(byte[] data) {
+        this.data = data;
+        // Update file size when data is set
+        if (data != null) {
+            this.fileSize = (long) data.length;
+        }
+    }
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public String getContent() {
+        if (content == null && data != null) {
+            // Convert binary data to string for preview
+            try {
+                content = new String(data, "UTF-8");
+            } catch (Exception e) {
+                content = "Binary content cannot be displayed as text";
+            }
+        }
+        return content;
+    }
 
-    public String getFileName() { return fileName; }
-    public void setFileName(String fileName) { this.fileName = fileName; }
+    // Helper methods
+    public boolean isBpmnFile() {
+        return fileName != null && (fileName.endsWith(".bpmn") || fileName.endsWith(".xml")) ||
+                fileType != null && fileType.contains("xml");
+    }
 
-    public String getFileType() { return fileType; }
-    public void setFileType(String fileType) { this.fileType = fileType; }
-
-    public Long getFileSize() { return fileSize; }
-    public void setFileSize(Long fileSize) { this.fileSize = fileSize; }
-
-    public byte[] getData() { return data; }
-    public void setData(byte[] data) { this.data = data; }
-
-    public LocalDateTime getUploadTime() { return uploadTime; }
-    public void setUploadTime(LocalDateTime uploadTime) { this.uploadTime = uploadTime; }
-
-    public String getBase64Data() {return base64Data;}
-    public void setBase64Data(String base64Data) {this.base64Data = base64Data;}
+    public String getFormattedFileSize() {
+        if (fileSize == null || fileSize == 0) return "0 Bytes";
+        String[] sizes = {"Bytes", "KB", "MB", "GB"};
+        int i = (int) Math.floor(Math.log(fileSize) / Math.log(1024));
+        return Math.round(fileSize / Math.pow(1024, i) * 100.0) / 100.0 + " " + sizes[i];
+    }
 
     @Override
     public String toString() {
@@ -69,10 +102,22 @@ public class File implements Serializable {
                 ", fileName='" + fileName + '\'' +
                 ", fileType='" + fileType + '\'' +
                 ", fileSize=" + fileSize +
-                ", base64Data='" + base64Data + '\'' +
-                ", data=" + Arrays.toString(data) +
                 ", uploadTime=" + uploadTime +
+                ", shortLink='" + shortLink + '\'' +
+                ", dataLength=" + (data != null ? data.length : 0) +
                 '}';
     }
-}
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof File)) return false;
+        File file = (File) o;
+        return id != null && id.equals(file.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return id != null ? id.hashCode() : 0;
+    }
+}
