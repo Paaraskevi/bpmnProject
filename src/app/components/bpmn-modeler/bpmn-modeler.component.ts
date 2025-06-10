@@ -2,9 +2,14 @@
 import { Component, ElementRef, OnInit, OnDestroy, ViewChild, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
+import { DownloadService } from '../../services/download.service';
 // Import BPMN.js (after npm install bpmn-js)
 import BpmnModeler from 'bpmn-js/lib/Modeler';
+import BpmnViewer from 'bpmn-js/lib/Viewer';
+import { AuthenticationService, User } from '../../services/authentication.service';
+import { BpmnService } from '../../services/bpmn.service';
 
 @Component({
   selector: 'app-bpmn-modeler',
@@ -16,9 +21,22 @@ import BpmnModeler from 'bpmn-js/lib/Modeler';
 export class BpmnModelerComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('modelerContainer', { static: true }) modelerContainer!: ElementRef;
 
-  private modeler!: BpmnModeler;
+  private modeler!: BpmnModeler | BpmnViewer;
+  private destroy$ = new Subject<void>();
+  
   selectedElement: any = null;
   isEditMode: boolean = false;
+  
+  // Permission flags
+  canEdit: boolean = false;
+  canView: boolean = false;
+  canCreate: boolean = false;
+  canDelete: boolean = false;
+  isViewerOnly: boolean = false;
+  
+  // Current user info
+  currentUser: User | null = null;
+  userRoles: string[] = [];
   
   // Editable properties
   editableProperties: any = {
@@ -55,8 +73,23 @@ export class BpmnModelerComponent implements OnInit, AfterViewInit, OnDestroy {
   </bpmndi:BPMNDiagram>
 </bpmn:definitions>`;
 
+  constructor(
+    private authService: AuthenticationService,
+    private bpmnService: BpmnService,
+    private downloadService: DownloadService
+  ) {}
+
   ngOnInit(): void {
-    // Component initialization
+    // Initialize permissions based on user roles
+    this.initializePermissions();
+    
+    // Subscribe to current user changes
+    this.authService.currentUser$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((user: User | null) => {
+        this.currentUser = user;
+        this.initializePermissions();
+      });
   }
 
   ngAfterViewInit(): void {
@@ -67,19 +100,57 @@ export class BpmnModelerComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+    
     if (this.modeler) {
       this.modeler.destroy();
     }
   }
 
+  private initializePermissions(): void {
+    // Get current user and roles
+    this.currentUser = this.authService.getCurrentUser();
+    this.userRoles = this.authService.getUserRoles();
+
+    // Set permission flags based on roles
+    this.canView = this.authService.canView();
+    this.canEdit = this.authService.canEdit();
+    this.canCreate = this.authService.canEdit(); // Same as edit for now
+    this.canDelete = this.authService.isAdmin(); // Only admins can delete
+    
+    // Check if user is viewer only
+    this.isViewerOnly = this.authService.isViewer() && 
+                       !this.authService.isModeler() && 
+                       !this.authService.isAdmin();
+
+    console.log('User permissions:', {
+      canView: this.canView,
+      canEdit: this.canEdit,
+      canCreate: this.canCreate,
+      canDelete: this.canDelete,
+      isViewerOnly: this.isViewerOnly,
+      roles: this.userRoles
+    });
+  }
+
   private initializeModeler(): void {
     try {
-      this.modeler = new BpmnModeler({
-        container: this.modelerContainer.nativeElement,
-        keyboard: {
-          bindTo: window
-        }
-      });
+      // Use viewer for read-only users, modeler for editors
+      if (this.isViewerOnly) {
+        this.modeler = new BpmnViewer({
+          container: this.modelerContainer.nativeElement
+        });
+        console.log('Initialized BPMN Viewer (read-only mode)');
+      } else {
+        this.modeler = new BpmnModeler({
+          container: this.modelerContainer.nativeElement,
+          keyboard: {
+            bindTo: window
+          }
+        });
+        console.log('Initialized BPMN Modeler (edit mode)');
+      }
 
       // Load default diagram
       this.loadDiagram(this.defaultXml);
@@ -106,10 +177,12 @@ export class BpmnModelerComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     });
 
-    // Listen for element changes
-    this.modeler.on('element.changed', (e: any) => {
-      console.log('Element changed:', e.element);
-    });
+    // Listen for element changes (only in edit mode)
+    if (!this.isViewerOnly) {
+      this.modeler.on('element.changed', (e: any) => {
+        console.log('Element changed:', e.element);
+      });
+    }
   }
 
   private loadElementProperties(): void {
@@ -148,13 +221,24 @@ export class BpmnModelerComponent implements OnInit, AfterViewInit, OnDestroy {
       });
   }
 
+  // Permission-checked actions
   createNewDiagram(): void {
+    if (!this.canCreate) {
+      alert('You do not have permission to create new diagrams.');
+      return;
+    }
+    
     this.loadDiagram(this.defaultXml);
     this.selectedElement = null;
     this.isEditMode = false;
   }
 
   onFileChange(event: Event): void {
+    if (!this.canView) {
+      alert('You do not have permission to open diagrams.');
+      return;
+    }
+
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     
@@ -169,16 +253,36 @@ export class BpmnModelerComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   saveDiagram(): void {
+    if (!this.canEdit) {
+      alert('You do not have permission to save diagrams.');
+      return;
+    }
+
     if (!this.modeler) return;
 
-    this.modeler.saveXML({ format: true })
-      .then((result: any) => {
-        const xml = result.xml;
-        this.downloadXml(xml, 'diagram.bpmn');
-      })
-      .catch((error: any) => {
-        console.error('Error saving diagram:', error);
-      });
+    // Type guard to check if modeler has saveXML method
+    // if ('saveXML' in this.modeler) {
+    //   this.modeler.saveXML({ format: true })
+    //     .then((result: any) => {
+    //       const xml = result.xml;
+    //       this.downloadXml(xml, 'diagram.bpmn');
+    //     })
+    //     .catch((error: any) => {
+    //       console.error('Error saving diagram:', error);
+    //     });
+    // } else {
+    //   alert('Cannot save in viewer mode.');
+    // }
+
+    this.downloadService.downloadPdf().subscribe(response => {
+      const blob = new Blob([response.body], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'export.pdf';
+      link.click();
+      URL.revokeObjectURL(url);
+    });
   }
 
   private downloadXml(xml: string, filename: string): void {
@@ -191,8 +295,13 @@ export class BpmnModelerComponent implements OnInit, AfterViewInit, OnDestroy {
     window.URL.revokeObjectURL(url);
   }
 
-  // Property editing methods
+  // Property editing methods (only for editors)
   toggleEditMode(): void {
+    if (!this.canEdit) {
+      alert('You do not have permission to edit element properties.');
+      return;
+    }
+
     if (this.isEditMode) {
       this.saveProperties();
     }
@@ -200,7 +309,13 @@ export class BpmnModelerComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   saveProperties(): void {
-    if (!this.selectedElement || !this.selectedElement.businessObject) {
+    if (!this.canEdit || !this.selectedElement || !this.selectedElement.businessObject) {
+      return;
+    }
+
+    // Type guard to check if modeler has get method (Modeler vs Viewer)
+    if (!('get' in this.modeler)) {
+      alert('Cannot edit properties in viewer mode.');
       return;
     }
 
@@ -301,5 +416,41 @@ export class BpmnModelerComponent implements OnInit, AfterViewInit, OnDestroy {
       const canvas = this.modeler.get('canvas');
       canvas.zoom('fit-viewport');
     }
+  }
+
+  // Helper methods for template
+  get currentUserRole(): string {
+    if (this.authService.isAdmin()) return 'Administrator';
+    if (this.authService.isModeler()) return 'Modeler';
+    if (this.authService.isViewer()) return 'Viewer';
+    return 'Unknown';
+  }
+
+  get canEditProperties(): boolean {
+    return this.canEdit && this.selectedElement && !this.isViewerOnly;
+  }
+
+  get currentUserFullName(): string {
+    if (this.currentUser && this.currentUser.firstname && this.currentUser.lastname) {
+      return `${this.currentUser.firstname} ${this.currentUser.lastname}`;
+    } else if (this.currentUser && this.currentUser.firstname) {
+      return this.currentUser.firstname;
+    } else if (this.currentUser && this.currentUser.username) {
+      return this.currentUser.username;
+    }
+    return 'User';
+  }
+
+  // Make authentication service methods available to template
+  get isAdmin(): boolean {
+    return this.authService.isAdmin();
+  }
+
+  get isModeler(): boolean {
+    return this.authService.isModeler();
+  }
+
+  get isViewer(): boolean {
+    return this.authService.isViewer();
   }
 }

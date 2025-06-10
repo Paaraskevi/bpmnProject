@@ -64,8 +64,6 @@ export class RegisterComponent {
         this.msg = 'Registration successful! Redirecting to dashboard...';
         this.isLoading = false;
         
-        // Start token refresh timer
-    
         
         // Redirect after a short delay to show success message
         setTimeout(() => {

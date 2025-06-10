@@ -1,12 +1,12 @@
 <div class="parent">
   <div class="container">
-    <form [formGroup]="userForm">
+    <form [formGroup]="userForm" (ngSubmit)="login()">
       <h1>Login</h1>
 
       <div class="input-box">
         <input type="text" formControlName="username" placeholder="Username" />
         <i class='bx bx-envelope'></i>
-        <div class="text-danger" *ngIf="userForm.controls['username'].touched && userForm.controls['username'].hasError('required')">
+        <div class="text-danger" *ngIf="userForm.get('username')?.touched && userForm.get('username')?.hasError('required')">
           <span>This is required</span>
         </div>
       </div>
@@ -14,10 +14,14 @@
       <div class="input-box">
         <input type="password" formControlName="password" placeholder="Password" />
         <i class='bx bx-lock-alt'></i>
-        <div class="text-danger" *ngIf="userForm.controls['password'].touched && userForm.controls['password'].errors">
-          <span *ngIf="userForm.controls['password'].hasError('required')">This is required</span>
-          <span *ngIf="userForm.controls['password'].hasError('minlength')">Minimum 4 characters required</span>
+        <div class="text-danger" *ngIf="userForm.get('password')?.touched && userForm.get('password')?.errors">
+          <span *ngIf="userForm.get('password')?.hasError('required')">This is required</span>
+          <span *ngIf="userForm.get('password')?.hasError('minlength')">Minimum 4 characters required</span>
         </div>
+      </div>
+
+      <div *ngIf="loginError" class="error-message">
+        {{ loginError }}
       </div>
 
       <div class="remember">
@@ -27,7 +31,7 @@
         <a routerLink="/forgot-password">Forgot password?</a>
       </div>
 
-      <button class="btn" (click)="login()" type="button">Login</button>
+      <button class="btn" type="submit">Login</button>
 
       <div class="register">
         <p>Don't have an account? <br />

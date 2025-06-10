@@ -47,7 +47,7 @@ export class LoginComponent {
     this.authenticationService.login(this.request).subscribe({
       next: (response) => {
         console.log('Login successful:', response);
-        console.log('Access token received:', response.access_token ? 'Yes' : 'No');
+        console.log('Access token received:', response.access_token);
         console.log('User info:', response.user);
         console.log('User roles:', response.user?.roles);
 
