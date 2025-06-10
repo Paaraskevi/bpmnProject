@@ -1,3 +1,4 @@
+// UserRepository.java - ΔΙΟΡΘΩΜΕΝΗ ΕΚΔΟΣΗ
 package bpmnProject.akon.bpmnJavaBackend.User;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -16,11 +17,15 @@ public interface UserRepository extends JpaRepository<User, Integer> {
     @Query("SELECT u FROM User u WHERE u.email = :email OR u.username = :username")
     Optional<User> findByEmailOrUsername(@Param("email") String email, @Param("username") String username);
 
-    @Query("SELECT u FROM User u JOIN FETCH u.roles WHERE u.username = :username")
+    // ΔΙΟΡΘΩΣΗ: Προσθήκη EAGER fetch για roles
+    @Query("SELECT u FROM User u LEFT JOIN FETCH u.roles WHERE u.username = :username")
     Optional<User> findByUsernameWithRoles(@Param("username") String username);
 
-    @Query("SELECT u FROM User u JOIN FETCH u.roles WHERE u.email = :email")
+    @Query("SELECT u FROM User u LEFT JOIN FETCH u.roles WHERE u.email = :email")
     Optional<User> findByEmailWithRoles(@Param("email") String email);
+
+    @Query("SELECT u FROM User u LEFT JOIN FETCH u.roles WHERE u.email = :emailOrUsername OR u.username = :emailOrUsername")
+    Optional<User> findByEmailOrUsernameWithRoles(@Param("emailOrUsername") String emailOrUsername);
 
     @Query("SELECT u FROM User u JOIN u.roles r WHERE r.name = :roleName")
     List<User> findByRoleName(@Param("roleName") String roleName);
@@ -31,4 +36,8 @@ public interface UserRepository extends JpaRepository<User, Integer> {
     boolean existsByEmail(String email);
 
     boolean existsByUsername(String username);
+
+    // Debug query - για να δούμε τι υπάρχει στη βάση
+    @Query("SELECT u.username, u.email, u.enabled FROM User u")
+    List<Object[]> findAllUsernamesAndEmails();
 }
