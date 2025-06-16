@@ -1,7 +1,6 @@
-
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { SettingsService } from '../../services/settings.service';
 import { NotificationService } from '../../services/notification.service';
 import { AuthenticationService, User } from '../../services/authentication.service';
@@ -54,6 +53,11 @@ export class SettingsComponent implements OnInit {
 
   loading = false;
   saving = false;
+  
+  // Target user data (when admin is editing another user)
+  targetUserId: number | null = null;
+  targetUser: User | null = null;
+  isEditingOtherUser = false;
 
   languages = [
     { code: 'en', name: 'English' },
@@ -79,6 +83,7 @@ export class SettingsComponent implements OnInit {
   canCreate: boolean = false;
   isViewerOnly: boolean = false;
   isAdmin: boolean = false;
+  isModeler: boolean = false;
   currentUser: User | null = null;
 
   constructor(
@@ -86,20 +91,31 @@ export class SettingsComponent implements OnInit {
     private settingsService: SettingsService,
     private notificationService: NotificationService,
     private authenticationService: AuthenticationService,
-    private router: Router
+    private router: Router,
+    private route: ActivatedRoute
   ) {
     this.initializeForms();
   }
   
   ngOnInit(): void {
+    // Check for userId parameter for admin editing other users
+    this.route.params.subscribe(params => {
+      if (params['userId']) {
+        this.targetUserId = +params['userId'];
+        this.isEditingOtherUser = true;
+      }
+    });
+
     if (!this.checkAccess()) {
-      return
+      return;
     }
     this.loadUserSettings();
   }
 
   checkAccess(): boolean {
-    if (!this.authenticationService.isLoggedIn()) {
+    // Check if user is logged in and has a valid token
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (!token || !this.authenticationService.isLoggedIn()) {
       this.notificationService.showError('Please log in to access settings');
       this.router.navigate(['/login']);
       return false;
@@ -109,13 +125,20 @@ export class SettingsComponent implements OnInit {
     
     // Set permission flags
     this.isAdmin = this.authenticationService.isAdmin();
+    this.isModeler = this.authenticationService.isModeler();
     this.canView = this.authenticationService.canView() || this.isAdmin;
     this.canEdit = this.authenticationService.canEdit() || this.isAdmin;
-    //this.canDelete = this.authenticationService.canDelete() || this.isAdmin;
     
     this.isViewerOnly = this.authenticationService.isViewer() &&
       !this.authenticationService.isModeler() &&
       !this.isAdmin;
+
+    // If editing another user, only admins can do this
+    if (this.isEditingOtherUser && !this.isAdmin) {
+      this.notificationService.showError('You do not have permission to edit other users');
+      this.router.navigate(['/settings']);
+      return false;
+    }
 
     // Allow access if user has at least view permissions or is admin
     if (!this.canView && !this.isAdmin) {
@@ -171,99 +194,214 @@ export class SettingsComponent implements OnInit {
 
   loadUserSettings(): void {
     this.loading = true;
-    this.settingsService.getUserSettings().subscribe({
-      next: (settings: UserService) => {
-        this.profileForm.patchValue(settings.profile);
-        this.preferencesForm.patchValue(settings.preferences);
-        this.securityForm.patchValue(settings.security);
-        this.loading = false;
-      },
-      error: (error: any) => {
-        console.error('Settings load error:', error);
-        this.notificationService.showError('Failed to load settings');
-        this.loading = false;
-      }
-    });
+    
+    // Check token before making request
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (!token) {
+      this.notificationService.showError('Authentication token not found. Please log in again.');
+      this.router.navigate(['/login']);
+      return;
+    }
+    
+    // If editing another user, load their settings
+    if (this.isEditingOtherUser && this.targetUserId) {
+      this.settingsService.getUserSettingsById(this.targetUserId).subscribe({
+        next: (settings: UserService) => {
+          this.populateForms(settings);
+          this.loading = false;
+        },
+        error: (error: any) => {
+          console.error('Settings load error:', error);
+          if (error.status === 401) {
+            this.notificationService.showError('Session expired. Please log in again.');
+            this.router.navigate(['/login']);
+          } else {
+            this.notificationService.showError('Failed to load user settings');
+          }
+          this.loading = false;
+        }
+      });
+    } else {
+      // Load current user's settings
+      this.settingsService.getUserSettings().subscribe({
+        next: (settings: UserService) => {
+          this.populateForms(settings);
+          this.loading = false;
+        },
+        error: (error: any) => {
+          console.error('Settings load error:', error);
+          if (error.status === 401) {
+            this.notificationService.showError('Session expired. Please log in again.');
+            this.router.navigate(['/login']);
+          } else {
+            this.notificationService.showError('Failed to load settings');
+          }
+          this.loading = false;
+        }
+      });
+    }
+  }
+
+  private populateForms(settings: UserService): void {
+    this.profileForm.patchValue(settings.profile);
+    this.preferencesForm.patchValue(settings.preferences);
+    this.securityForm.patchValue(settings.security);
+    
+    // Set form states based on permissions
+    this.updateFormStates();
+  }
+
+  private updateFormStates(): void {
+    const isDisabled = this.isFormDisabled;
+    
+    if (isDisabled) {
+      this.profileForm.disable();
+      this.preferencesForm.disable();
+      this.securityForm.disable();
+      this.passwordForm.disable();
+    } else {
+      this.profileForm.enable();
+      this.preferencesForm.enable();
+      this.securityForm.enable();
+      this.passwordForm.enable();
+    }
+
+    // Special handling for viewers - they can only view certain fields
+    if (this.isViewerOnly && !this.isEditingOtherUser) {
+      // Viewers can see all data but cannot edit
+      this.profileForm.disable();
+      this.preferencesForm.disable();
+      this.securityForm.disable();
+      this.passwordForm.disable();
+    }
   }
 
   onSaveProfile(): void {
-    if (!this.canEdit && !this.isAdmin) {
-      this.notificationService.showError('You do not have permission to edit settings');
+    if (!this.canEditCurrentContext()) {
+      this.notificationService.showError('You do not have permission to edit these settings');
       return;
     }
 
     if (this.profileForm.valid) {
       this.saving = true;
-      this.settingsService.updateProfile(this.profileForm.value).subscribe({
-        next: (response:any) => {
-          this.notificationService.showSuccess('Profile updated successfully');
-          this.saving = false;
-        },
-        error: (error:any) => {
-          this.notificationService.showError('Failed to update profile');
-          this.saving = false;
-        }
-      });
+      
+      if (this.isEditingOtherUser && this.targetUserId) {
+        this.settingsService.updateProfileById(this.targetUserId, this.profileForm.value).subscribe({
+          next: (response: any) => {
+            this.notificationService.showSuccess('User profile updated successfully');
+            this.saving = false;
+          },
+          error: (error: any) => {
+            this.notificationService.showError('Failed to update user profile');
+            this.saving = false;
+          }
+        });
+      } else {
+        this.settingsService.updateProfile(this.profileForm.value).subscribe({
+          next: (response: any) => {
+            this.notificationService.showSuccess('Profile updated successfully');
+            this.saving = false;
+          },
+          error: (error: any) => {
+            this.notificationService.showError('Failed to update profile');
+            this.saving = false;
+          }
+        });
+      }
     }
   }
 
   onSavePreferences(): void {
-    if (!this.canEdit && !this.isAdmin) {
-      this.notificationService.showError('You do not have permission to edit settings');
+    if (!this.canEditCurrentContext()) {
+      this.notificationService.showError('You do not have permission to edit these settings');
       return;
     }
 
     if (this.preferencesForm.valid) {
       this.saving = true;
-      this.settingsService.updatePreferences(this.preferencesForm.value).subscribe({
-        next: (response:any) => {
-          this.notificationService.showSuccess('Preferences updated successfully');
-          this.saving = false;
-        },
-        error: (error:any) => {
-          this.notificationService.showError('Failed to update preferences');
-          this.saving = false;
-        }
-      });
+      
+      if (this.isEditingOtherUser && this.targetUserId) {
+        this.settingsService.updatePreferencesById(this.targetUserId, this.preferencesForm.value).subscribe({
+          next: (response: any) => {
+            this.notificationService.showSuccess('User preferences updated successfully');
+            this.saving = false;
+          },
+          error: (error: any) => {
+            this.notificationService.showError('Failed to update user preferences');
+            this.saving = false;
+          }
+        });
+      } else {
+        this.settingsService.updatePreferences(this.preferencesForm.value).subscribe({
+          next: (response: any) => {
+            this.notificationService.showSuccess('Preferences updated successfully');
+            this.saving = false;
+          },
+          error: (error: any) => {
+            this.notificationService.showError('Failed to update preferences');
+            this.saving = false;
+          }
+        });
+      }
     }
   }
 
   onSaveSecurity(): void {
-    if (!this.canEdit && !this.isAdmin) {
+    if (!this.canEditCurrentContext()) {
       this.notificationService.showError('You do not have permission to edit security settings');
       return;
     }
 
     if (this.securityForm.valid) {
       this.saving = true;
-      this.settingsService.updateSecurity(this.securityForm.value).subscribe({
-        next: (response:any) => {
-          this.notificationService.showSuccess('Security settings updated successfully');
-          this.saving = false;
-        },
-        error: (error:any) => {
-          this.notificationService.showError('Failed to update security settings');
-          this.saving = false;
-        }
-      });
+      
+      if (this.isEditingOtherUser && this.targetUserId) {
+        this.settingsService.updateSecurityById(this.targetUserId, this.securityForm.value).subscribe({
+          next: (response: any) => {
+            this.notificationService.showSuccess('User security settings updated successfully');
+            this.saving = false;
+          },
+          error: (error: any) => {
+            this.notificationService.showError('Failed to update user security settings');
+            this.saving = false;
+          }
+        });
+      } else {
+        this.settingsService.updateSecurity(this.securityForm.value).subscribe({
+          next: (response: any) => {
+            this.notificationService.showSuccess('Security settings updated successfully');
+            this.saving = false;
+          },
+          error: (error: any) => {
+            this.notificationService.showError('Failed to update security settings');
+            this.saving = false;
+          }
+        });
+      }
     }
   }
 
   onChangePassword(): void {
-    if (!this.canEdit && !this.isAdmin) {
+    if (!this.canEditCurrentContext()) {
       this.notificationService.showError('You do not have permission to change password');
+      return;
+    }
+
+    // Password changes are only allowed for own account, not when editing others
+    if (this.isEditingOtherUser) {
+      this.notificationService.showError('Cannot change password for other users');
       return;
     }
 
     if (this.passwordForm.valid) {
       this.saving = true;
       this.settingsService.changePassword(this.passwordForm.value).subscribe({
-        next: (response:any) => {
+        next: (response: any) => {
           this.notificationService.showSuccess('Password changed successfully');
           this.passwordForm.reset();
           this.saving = false;
         },
-        error: (error:any) => {
+        error: (error: any) => {
           this.notificationService.showError('Failed to change password');
           this.saving = false;
         }
@@ -279,7 +417,30 @@ export class SettingsComponent implements OnInit {
     return this.authenticationService.hasRole(role);
   }
 
+  // Check if current user can edit in the current context
+  private canEditCurrentContext(): boolean {
+    if (this.isEditingOtherUser) {
+      // Only admins can edit other users
+      return this.isAdmin;
+    } else {
+      // For own settings: modelers and admins can edit, viewers cannot
+      return (this.canEdit || this.isAdmin) && !this.isViewerOnly;
+    }
+  }
+
   get isFormDisabled(): boolean {
-    return this.isViewerOnly && !this.isAdmin;
+    return !this.canEditCurrentContext();
+  }
+
+  get displayUserName(): string {
+    if (this.isEditingOtherUser && this.targetUser) {
+      return `${this.targetUser.firstname} ${this.targetUser.lastname}`;
+    }
+    return 'My Settings';
+  }
+
+  get showPasswordTab(): boolean {
+    // Password tab only shows when editing own account
+    return !this.isEditingOtherUser;
   }
 }

@@ -3,19 +3,14 @@ import { provideRouter } from '@angular/router';
 
 import { routes } from './app.routes';
 import { HTTP_INTERCEPTORS, provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
-import { AuthInterceptorService } from './services/auth-interceptor.service';
-
+import { JwtInterceptor } from './interceptors/jwt.interceptor';
 export const appConfig: ApplicationConfig = {
   providers: [provideZoneChangeDetection({ eventCoalescing: true }), provideRouter(routes), 
     provideHttpClient(withInterceptorsFromDi()), 
-      // {
-      //   provide: HTTP_INTERCEPTORS,
-      //   useClass: JwtInterceptor,
-      //   multi: true,
-      // },
       {
-        provide:HTTP_INTERCEPTORS,
-        useClass: AuthInterceptorService,
+        provide: HTTP_INTERCEPTORS,
+        useClass: JwtInterceptor,
         multi: true,
-      }]
+      },
+      ]
 };
