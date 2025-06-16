@@ -1,4 +1,4 @@
-import { Component, ViewChild, ElementRef, OnInit, OnDestroy } from '@angular/core';
+import { Component, ViewChild, ElementRef, OnInit, OnDestroy, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FileService } from '../../services/file.service';
@@ -6,6 +6,12 @@ import { AppFile } from '../../files';
 import feather from 'feather-icons';
 import { AuthenticationService, User } from '../../services/authentication.service';
 import { Subject, takeUntil } from 'rxjs';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
+import BpmnModeler from 'bpmn-js/lib/Modeler';
+import BpmnViewer from 'bpmn-js/lib/Viewer';
+import { MatDialog } from '@angular/material/dialog';
+import { DialogBoxComponent } from '../dialog-box/dialog-box.component';
 
 @Component({
   selector: 'app-list-files',
@@ -16,11 +22,12 @@ import { Subject, takeUntil } from 'rxjs';
 })
 export class ListFilesComponent implements OnInit, OnDestroy {
   @ViewChild('listfiles', { static: true }) listfiles!: ElementRef;
-  
+
   appFile: AppFile[] = [];
   isLoading = true;
   currentUser: User | null = null;
-  
+  currentFile: AppFile | null = null;
+ 
   // Permission flags
   canView: boolean = false;
   canEdit: boolean = false;
@@ -32,7 +39,9 @@ export class ListFilesComponent implements OnInit, OnDestroy {
   isExporting = false;
   exportingFileId: number | null = null;
 
+  readonly popup = inject(MatDialog);
   private destroy$ = new Subject<void>();
+  private modeler!: BpmnModeler | BpmnViewer;
 
   constructor(
     private fileService: FileService,
@@ -70,7 +79,7 @@ export class ListFilesComponent implements OnInit, OnDestroy {
 
   private initializePermissions(): void {
     this.currentUser = this.authenticationService.getCurrentUser();
-    
+
     // Set permissions based on user roles
     this.canView = this.authenticationService.canView();
     this.canEdit = this.authenticationService.canEdit();
@@ -103,7 +112,7 @@ export class ListFilesComponent implements OnInit, OnDestroy {
       next: (response: AppFile[]) => {
         this.appFile = response;
         this.isLoading = false;
-        
+
         // Refresh feather icons after data loads
         setTimeout(() => {
           if (typeof feather !== 'undefined') {
@@ -119,13 +128,18 @@ export class ListFilesComponent implements OnInit, OnDestroy {
     });
   }
 
-  deleteFile(id: number): void {
-    if (!this.canDelete) {
-      this.showMessage('You do not have permission to delete files.', 'error');
-      return;
-    }
+deleteFile(id: number): void {
+  if (!this.canDelete) {
+    this.showMessage('You do not have permission to delete files.', 'error');
+    return;
+  }
+  const dialogRef = this.popup.open(DialogBoxComponent, {
+    width: '400px',
+    disableClose: true 
+  });
 
-    if (confirm('Are you sure you want to delete this file? This action cannot be undone.')) {
+  dialogRef.afterClosed().subscribe(result => {
+    if (result === true) {
       this.fileService.deleteFile(id).subscribe({
         next: () => {
           this.appFile = this.appFile.filter(file => file.id !== id);
@@ -137,8 +151,8 @@ export class ListFilesComponent implements OnInit, OnDestroy {
         }
       });
     }
-  }
-
+  });
+}
   openFile(file: AppFile): void {
     if (!this.canView) {
       this.showMessage('You do not have permission to view files.', 'error');
@@ -165,7 +179,10 @@ export class ListFilesComponent implements OnInit, OnDestroy {
 
     this.fileService.downloadFile(file.id!).subscribe({
       next: (blob: Blob) => {
-        this.downloadBlob(blob, file.fileName || 'diagram.bpmn');
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = file.fileName || 'downloaded_file';
         this.showMessage('File downloaded successfully', 'success');
       },
       error: (error: any) => {
@@ -175,47 +192,85 @@ export class ListFilesComponent implements OnInit, OnDestroy {
     });
   }
 
-  exportToPdf(file: AppFile): void {
-    if (!this.canView) {
-      this.showMessage('You do not have permission to export files.', 'error');
-      return;
-    }
-
-    if (!file.id) {
-      this.showMessage('Invalid file ID', 'error');
-      return;
-    }
-
-    this.isExporting = true;
-    this.exportingFileId = file.id;
-
-    this.fileService.exportFileToPdf(file.id).subscribe({
-      next: (pdfBlob: Blob) => {
-        this.downloadBlob(pdfBlob, (file.fileName || 'diagram').replace(/\.(bpmn|xml)$/, '') + '.pdf');
-        this.showMessage('File exported to PDF successfully', 'success');
-      },
-      error: (error: any) => {
-        console.error('Error exporting file to PDF:', error);
-        this.showMessage('Error exporting file to PDF: ' + error.message, 'error');
-      },
-      complete: () => {
-        this.isExporting = false;
-        this.exportingFileId = null;
+ exportToPdf(): void {
+    if (this.canView) {
+      if (!this.currentFile?.fileName) {
+        this.showMessage('Please save the diagram first before exporting to PDF.', 'warning');
+        return;
       }
-    });
-  }
 
-  private downloadBlob(blob: Blob, fileName: string): void {
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
-  }
+      if (!this.modeler) {
+        this.showMessage('BPMN modeler not initialized', 'error');
+        return;
+      }
 
+      try {
+        this.modeler.saveSVG().then((result: any) => {
+          const svgString = result.svg;
+          this.convertSvgToPdf(svgString, this.currentFile!.fileName!);
+        }).catch((error: any) => {
+          console.error('Error getting SVG from modeler:', error);
+          this.showMessage('Error exporting diagram: ' + error.message, 'error');
+        });
+      } catch (error: any) {
+        console.error('Error in exportToPdf:', error);
+        this.showMessage('Error exporting diagram: ' + error.message, 'error');
+      }
+    }
+  }
+  private convertSvgToPdf(svgString: string, fileName: string): void {
+    if (this.canView) {
+      const tempDiv = document.createElement('div');
+      tempDiv.style.cssText = `
+    position: absolute;
+    top: -9999px;
+    left: -9999px;
+    background: white;
+    padding: 20px;
+  `;
+      tempDiv.innerHTML = svgString;
+      document.body.appendChild(tempDiv);
+
+      const svgElement = tempDiv.querySelector('svg');
+      if (!svgElement) {
+        this.showMessage('Could not extract diagram SVG', 'error');
+        document.body.removeChild(tempDiv);
+        return;
+      }
+      svgElement.style.background = 'white';
+      svgElement.style.border = '1px solid #ddd';
+
+      html2canvas(tempDiv, {
+        useCORS: true,
+        allowTaint: true
+      }).then(canvas => {
+        const imgWidth = 190;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const contentDataURL = canvas.toDataURL('image/png', 1.0);
+
+
+        pdf.setFontSize(16);
+        pdf.text(fileName.replace(/\.(bpmn|xml)$/, ''), 10, 15);
+
+
+        pdf.addImage(contentDataURL, 'PNG', 10, 25, imgWidth, imgHeight);
+
+        const pdfFileName = fileName.replace(/\.(bpmn|xml)$/, '') + '.pdf';
+        pdf.save(pdfFileName);
+
+        this.showMessage('Diagram exported to PDF successfully', 'success');
+
+
+        document.body.removeChild(tempDiv);
+      }).catch(error => {
+        console.error('Error converting SVG to PDF:', error);
+        this.showMessage('Error converting diagram to PDF: ' + error.message, 'error');
+        document.body.removeChild(tempDiv);
+      });
+    }
+  }
   navigateToModeler(): void {
     if (!this.canCreate) {
       this.showMessage('You do not have permission to create new files.', 'error');
@@ -255,6 +310,9 @@ export class ListFilesComponent implements OnInit, OnDestroy {
     if (this.authenticationService.isModeler()) {
       return true; // For now, allow all modelers to edit files
     }
+    if(this.authenticationService.isViewer()) {
+      return  true; 
+    }
     return false;
   }
 
@@ -267,16 +325,13 @@ export class ListFilesComponent implements OnInit, OnDestroy {
   }
 
   canExportFile(file: AppFile): boolean {
-    return !(this.canView && !!file.content && (
-      file.fileName?.endsWith('.bpmn') || 
-      file.fileName?.endsWith('.xml') || 
+    return this.canView && !!(
+      file.fileName?.endsWith('.bpmn') ||
+      file.fileName?.endsWith('.xml') ||
       file.fileType?.includes('xml')
-    ));
+    );
   }
 
-  isExportingFile(file: AppFile): boolean {
-    return this.isExporting && this.exportingFileId === file.id;
-  }
 
   get currentUserRole(): string {
     if (this.authenticationService.isAdmin()) return 'Administrator';

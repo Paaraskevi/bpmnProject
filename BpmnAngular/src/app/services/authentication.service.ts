@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, Injector } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { BehaviorSubject, Observable, throwError } from 'rxjs';
 import { map, catchError, tap } from 'rxjs/operators';
@@ -66,11 +66,12 @@ export class AuthenticationService {
 
   private tokenSubject = new BehaviorSubject<string | null>(this.getToken());
   public token$ = this.tokenSubject.asObservable();
+  private http: HttpClient;
 
-  constructor(
-    private http: HttpClient,
+  constructor(private injector: Injector,
     private router: Router
   ) {
+    this.http = this.injector.get(HttpClient);
     this.checkTokenValidity();
   }
 
@@ -93,7 +94,7 @@ export class AuthenticationService {
   // Authentication Methods
   login(credentials: LoginRequest): Observable<LoginResponse> {
     console.log('Attempting login for user:', credentials.username);
-    
+
     return this.http.post<LoginResponse>(`${this.API_URL}/login`, credentials)
       .pipe(
         tap(response => {
@@ -117,7 +118,7 @@ export class AuthenticationService {
 
   logout(): void {
     const token = this.getToken();
-    
+
     // Call backend logout if token exists
     if (token) {
       this.http.post(`${this.API_URL}/logout`, {}, {
@@ -125,16 +126,18 @@ export class AuthenticationService {
           'Authorization': `Bearer ${token}`
         })
       }).subscribe({
-        next: () => console.log('Backend logout successful'),
+        next: () => {
+          console.log('Backend logout successful');
+          localStorage.clear();
+        },
         error: (error) => console.warn('Backend logout failed:', error)
       });
     }
-    
+
     this.clearSession();
     this.router.navigate(['/login']);
   }
 
-  // Simplified refresh token - will be implemented later
   refreshToken(): Observable<AuthenticationResponse> {
     console.log('Refresh token not implemented yet - logging out');
     this.logout();
@@ -145,7 +148,7 @@ export class AuthenticationService {
   private setSession(authResult: LoginResponse | AuthenticationResponse): void {
     if (typeof window !== 'undefined') {
       console.log('Setting session with new token');
-      
+
       localStorage.setItem(this.TOKEN_KEY, authResult.access_token);
       localStorage.setItem(this.USER_KEY, JSON.stringify(authResult.user));
 
@@ -156,7 +159,7 @@ export class AuthenticationService {
 
   private clearSession(): void {
     console.log('Clearing session');
-    
+
     if (typeof window !== 'undefined') {
       localStorage.removeItem(this.TOKEN_KEY);
       localStorage.removeItem(this.USER_KEY);
@@ -221,7 +224,7 @@ export class AuthenticationService {
   getUserRolesFromToken(): string[] {
     const token = this.getToken();
     if (!token) return [];
-    
+
     try {
       const payload = this.getTokenPayload(token);
       return payload.roles || [];
@@ -233,7 +236,7 @@ export class AuthenticationService {
   hasRole(roleName: string): boolean {
     const user = this.getCurrentUser();
     const tokenRoles = this.getUserRolesFromToken();
-    
+
     // Check from user object first
     if (user && user.roles) {
       const hasRoleFromUser = user.roles.some(role =>
@@ -241,10 +244,10 @@ export class AuthenticationService {
       );
       if (hasRoleFromUser) return true;
     }
-    
+
     // Fallback to token roles
-    return tokenRoles.some(role => 
-      role === roleName || 
+    return tokenRoles.some(role =>
+      role === roleName ||
       role === `ROLE_${roleName.toUpperCase()}` ||
       (role.startsWith('ROLE_') && role.substring(5) === roleName.toUpperCase())
     );

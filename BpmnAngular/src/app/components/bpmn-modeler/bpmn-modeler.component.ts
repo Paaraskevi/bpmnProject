@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnInit, OnDestroy, ViewChild, AfterViewInit } from '@angular/core';
+import { Component, ElementRef, OnInit, OnDestroy, ViewChild, AfterViewInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -9,7 +9,12 @@ import { AppFile } from '../../files';
 import BpmnModeler from 'bpmn-js/lib/Modeler';
 import BpmnViewer from 'bpmn-js/lib/Viewer';
 import { AuthenticationService, User } from '../../services/authentication.service';
-
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
+import { MatDialog } from '@angular/material/dialog';
+import { DialogBoxComponent } from '../dialog-box/dialog-box.component';
+import { UnSaveDialogComponent } from '../un-save-dialog/un-save-dialog.component';
+import { BpmnService } from '../../services/bpmn.service';
 @Component({
   selector: 'app-bpmn-modeler',
   standalone: true,
@@ -22,23 +27,23 @@ export class BpmnModelerComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private modeler!: BpmnModeler | BpmnViewer;
   private destroy$ = new Subject<void>();
-  
+
   selectedElement: any = null;
   isEditMode: boolean = false;
   currentFile: AppFile | null = null;
   isViewerOnly: boolean = false;
   hasUnsavedChanges: boolean = false;
-  
+
   // Permission flags
   canEdit: boolean = false;
   canView: boolean = false;
   canCreate: boolean = false;
   canDelete: boolean = false;
-  
+
   // Current user info
   currentUser: User | null = null;
   userRoles: string[] = [];
-  
+
   // Editable properties
   editableProperties: any = {
     name: '',
@@ -54,6 +59,7 @@ export class BpmnModelerComponent implements OnInit, AfterViewInit, OnDestroy {
     candidateStarter: '',
     executionTime: ''
   };
+  readonly popup = inject(MatDialog);
 
   private defaultXml = `<?xml version="1.0" encoding="UTF-8"?>
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" 
@@ -78,12 +84,13 @@ export class BpmnModelerComponent implements OnInit, AfterViewInit, OnDestroy {
     private authService: AuthenticationService,
     private fileService: FileService,
     private route: ActivatedRoute,
-    private router: Router
-  ) {}
+    private router: Router,
+    private bpmnService: BpmnService
+  ) { }
 
   ngOnInit(): void {
     this.initializePermissions();
-    
+
     this.authService.currentUser$
       .pipe(takeUntil(this.destroy$))
       .subscribe((user: User | null) => {
@@ -108,7 +115,7 @@ export class BpmnModelerComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
-    
+
     if (this.modeler) {
       this.modeler.destroy();
     }
@@ -122,10 +129,10 @@ export class BpmnModelerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.canEdit = this.authService.canEdit();
     this.canCreate = this.authService.canEdit();
     this.canDelete = this.authService.isAdmin();
-    
-    this.isViewerOnly = this.authService.isViewer() && 
-                       !this.authService.isModeler() && 
-                       !this.authService.isAdmin();
+
+    this.isViewerOnly = this.authService.isViewer() &&
+      !this.authService.isModeler() &&
+      !this.authService.isAdmin();
 
     console.log('BPMN Modeler permissions:', {
       canView: this.canView,
@@ -176,7 +183,7 @@ export class BpmnModelerComponent implements OnInit, AfterViewInit, OnDestroy {
       const element = e.newSelection[0];
       this.selectedElement = element || null;
       this.isEditMode = false;
-      
+
       if (this.selectedElement) {
         this.loadElementProperties();
       }
@@ -201,7 +208,7 @@ export class BpmnModelerComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     const bo = this.selectedElement.businessObject;
-    
+
     this.editableProperties = {
       name: bo.name || '',
       id: bo.id || '',
@@ -243,7 +250,7 @@ export class BpmnModelerComponent implements OnInit, AfterViewInit, OnDestroy {
       next: (file: AppFile) => {
         this.currentFile = file;
         console.log('Loaded file:', file.fileName);
-        
+
         if (this.modeler) {
           this.loadDiagram(file.content || this.defaultXml);
         }
@@ -261,18 +268,35 @@ export class BpmnModelerComponent implements OnInit, AfterViewInit, OnDestroy {
       this.showMessage('You do not have permission to create new diagrams.', 'error');
       return;
     }
-
-    if (this.hasUnsavedChanges) {
-      if (!confirm('You have unsaved changes. Are you sure you want to create a new diagram?')) {
-        return;
+    const dialogRef = this.popup.open(UnSaveDialogComponent, {
+      width: '400px',
+      disableClose: true
+    });
+    dialogRef.afterClosed().subscribe(result => {
+      if (result === true) {
+        const diagramRequest = {
+          name: 'New Diagram',
+          description: 'Description of the new diagram',
+          xml: this.defaultXml,
+          svg: undefined,
+          isPublic: false,
+          tags: [],
+          category: undefined
+        };
+        this.bpmnService.createDiagram(diagramRequest).subscribe({
+          next: () => {
+            this.showMessage('New diagram created successfully', 'success');
+          }
+        });
       }
+    });
+    if (this.hasUnsavedChanges) {
+      this.currentFile = null;
+      this.loadDiagram(this.defaultXml);
+      this.selectedElement = null;
+      this.isEditMode = false;
+      this.hasUnsavedChanges = false;
     }
-    
-    this.currentFile = null;
-    this.loadDiagram(this.defaultXml);
-    this.selectedElement = null;
-    this.isEditMode = false;
-    this.hasUnsavedChanges = false;
   }
 
   onFileChange(event: Event): void {
@@ -283,7 +307,7 @@ export class BpmnModelerComponent implements OnInit, AfterViewInit, OnDestroy {
 
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
-    
+
     if (file) {
       if (this.hasUnsavedChanges) {
         if (!confirm('You have unsaved changes. Are you sure you want to open a new file?')) {
@@ -308,14 +332,14 @@ export class BpmnModelerComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    if (!this.modeler) return;
+    // if (!this.modeler) return;
 
     // Type guard to check if modeler has saveXML method
     if ('saveXML' in this.modeler) {
       this.modeler.saveXML({ format: true })
         .then((result: any) => {
           const xml = result.xml;
-          
+
           if (this.currentFile) {
             // Update existing file
             this.updateExistingFile(xml);
@@ -367,35 +391,84 @@ export class BpmnModelerComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   exportToPdf(): void {
-    if (!this.currentFile?.id) {
-      this.showMessage('Please save the diagram first before exporting to PDF.', 'warning');
-      return;
-    }
-
-    this.fileService.exportFileToPdf(this.currentFile.id).subscribe({
-      next: (pdfBlob: Blob) => {
-        this.downloadBlob(pdfBlob, (this.currentFile?.fileName || 'diagram').replace(/\.(bpmn|xml)$/, '') + '.pdf');
-        this.showMessage('Diagram exported to PDF successfully', 'success');
-      },
-      error: (error: any) => {
-        console.error('Error exporting to PDF:', error);
-        this.showMessage('Error exporting to PDF: ' + error.message, 'error');
+    if (this.canView) {
+      if (!this.currentFile?.fileName) {
+        this.showMessage('Please save the diagram first before exporting to PDF.', 'warning');
+        return;
       }
-    });
-  }
 
-  private downloadBlob(blob: Blob, fileName: string): void {
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
-  }
+      if (!this.modeler) {
+        this.showMessage('BPMN modeler not initialized', 'error');
+        return;
+      }
 
-  // Property editing methods
+      try {
+        this.modeler.saveSVG().then((result: any) => {
+          const svgString = result.svg;
+          this.convertSvgToPdf(svgString, this.currentFile!.fileName!);
+        }).catch((error: any) => {
+          console.error('Error getting SVG from modeler:', error);
+          this.showMessage('Error exporting diagram: ' + error.message, 'error');
+        });
+      } catch (error: any) {
+        console.error('Error in exportToPdf:', error);
+        this.showMessage('Error exporting diagram: ' + error.message, 'error');
+      }
+    }
+  }
+  private convertSvgToPdf(svgString: string, fileName: string): void {
+    if (this.canView) {
+      const tempDiv = document.createElement('div');
+      tempDiv.style.cssText = `
+    position: absolute;
+    top: -9999px;
+    left: -9999px;
+    background: white;
+    padding: 20px;
+  `;
+      tempDiv.innerHTML = svgString;
+      document.body.appendChild(tempDiv);
+
+      const svgElement = tempDiv.querySelector('svg');
+      if (!svgElement) {
+        this.showMessage('Could not extract diagram SVG', 'error');
+        document.body.removeChild(tempDiv);
+        return;
+      }
+      svgElement.style.background = 'white';
+      svgElement.style.border = '1px solid #ddd';
+
+      html2canvas(tempDiv, {
+        useCORS: true,
+        allowTaint: true
+      }).then(canvas => {
+        const imgWidth = 190;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const contentDataURL = canvas.toDataURL('image/png', 1.0);
+
+
+        pdf.setFontSize(16);
+        pdf.text(fileName.replace(/\.(bpmn|xml)$/, ''), 10, 15);
+
+
+        pdf.addImage(contentDataURL, 'PNG', 10, 25, imgWidth, imgHeight);
+
+        const pdfFileName = fileName.replace(/\.(bpmn|xml)$/, '') + '.pdf';
+        pdf.save(pdfFileName);
+
+        this.showMessage('Diagram exported to PDF successfully', 'success');
+
+
+        document.body.removeChild(tempDiv);
+      }).catch(error => {
+        console.error('Error converting SVG to PDF:', error);
+        this.showMessage('Error converting diagram to PDF: ' + error.message, 'error');
+        document.body.removeChild(tempDiv);
+      });
+    }
+  }
   toggleEditMode(): void {
     if (!this.canEdit) {
       this.showMessage('You do not have permission to edit element properties.', 'error');
@@ -430,9 +503,9 @@ export class BpmnModelerComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Update documentation
     if (this.editableProperties.documentation !== (bo.documentation?.[0]?.text || '')) {
-      const documentation = this.editableProperties.documentation ? 
+      const documentation = this.editableProperties.documentation ?
         [{ text: this.editableProperties.documentation }] : undefined;
-      
+
       modeling.updateProperties(this.selectedElement, {
         documentation: documentation
       });
@@ -446,14 +519,14 @@ export class BpmnModelerComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     if (this.editableProperties.candidateUsers !== (bo.candidateUsers?.join(', ') || '')) {
-      processProperties.candidateUsers = this.editableProperties.candidateUsers ? 
-        this.editableProperties.candidateUsers.split(',').map((u: string) => u.trim()).filter((u: string) => u) : 
+      processProperties.candidateUsers = this.editableProperties.candidateUsers ?
+        this.editableProperties.candidateUsers.split(',').map((u: string) => u.trim()).filter((u: string) => u) :
         undefined;
     }
 
     if (this.editableProperties.candidateGroups !== (bo.candidateGroups?.join(', ') || '')) {
-      processProperties.candidateGroups = this.editableProperties.candidateGroups ? 
-        this.editableProperties.candidateGroups.split(',').map((g: string) => g.trim()).filter((g: string) => g) : 
+      processProperties.candidateGroups = this.editableProperties.candidateGroups ?
+        this.editableProperties.candidateGroups.split(',').map((g: string) => g.trim()).filter((g: string) => g) :
         undefined;
     }
 

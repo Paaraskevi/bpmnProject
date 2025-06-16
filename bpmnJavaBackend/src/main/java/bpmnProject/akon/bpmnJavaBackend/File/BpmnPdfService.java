@@ -105,7 +105,6 @@ public class BpmnPdfService {
      * Convert BPMN to SVG (placeholder implementation)
      */
     public byte[] convertBpmnToSvg(File file) {
-        // For now, return a simple SVG placeholder
         String svg = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
                 "<svg width=\"400\" height=\"200\" xmlns=\"http://www.w3.org/2000/svg\">\n" +
                 "  <rect x=\"10\" y=\"10\" width=\"380\" height=\"180\" fill=\"lightblue\" stroke=\"black\"/>\n" +
@@ -133,7 +132,6 @@ public class BpmnPdfService {
         try {
             String xmlContent = new String(file.getData());
 
-            // Basic validation checks
             boolean isValidXml = xmlContent.contains("<?xml") && xmlContent.contains("bpmn:");
             boolean hasDefinitions = xmlContent.contains("bpmn:definitions");
             boolean hasProcess = xmlContent.contains("bpmn:process");
@@ -174,4 +172,6 @@ public class BpmnPdfService {
         int i = (int) Math.floor(Math.log(bytes) / Math.log(1024));
         return Math.round(bytes / Math.pow(1024, i) * 100.0) / 100.0 + " " + sizes[i];
     }
+
+
 }

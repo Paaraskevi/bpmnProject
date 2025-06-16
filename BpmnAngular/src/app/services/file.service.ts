@@ -4,7 +4,8 @@ import { Observable, throwError } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { AppFile } from '../files';
 import { AuthenticationService } from './authentication.service';
-
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 @Injectable({
   providedIn: 'root'
 })
@@ -100,29 +101,29 @@ export class FileService {
     );
   }
 
-  /**
-   * Export file as PDF
-   */
-  public exportFileToPdf(fileId: number): Observable<Blob> {
-    return this.http.get(`${this.apiServerUrl}/${fileId}/export/pdf`, {
-      responseType: 'blob',
-      headers: this.getAuthHeaders()
-    }).pipe(
-      catchError(this.handleError)
-    );
-  }
+public exportElementToPdf(elementId: string = 'content', fileName: string = 'exported-file.pdf'): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const element = document.getElementById(elementId);
+    
+    if (!element) {
+      reject(new Error(`Element with ID '${elementId}' not found`));
+      return;
+    }
 
-  /**
-   * Export file as PDF with metadata
-   */
-  public exportFileToPdfWithMetadata(fileId: number, metadata?: any): Observable<Blob> {
-    return this.http.post(`${this.apiServerUrl}/${fileId}/export/pdf`, metadata || {}, {
-      responseType: 'blob',
-      headers: this.getAuthHeaders()
-    }).pipe(
-      catchError(this.handleError)
-    );
-  }
+    html2canvas(element).then(canvas => {
+      const imgWidth = 208;
+      const imgHeight = canvas.height * imgWidth / canvas.width;
+      const contentDataURL = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      
+      pdf.addImage(contentDataURL, 'PNG', 0, 0, imgWidth, imgHeight);
+      pdf.save(fileName);
+      resolve();
+    }).catch(error => {
+      reject(error);
+    });
+  });
+}
 
   /**
    * Export file in various formats

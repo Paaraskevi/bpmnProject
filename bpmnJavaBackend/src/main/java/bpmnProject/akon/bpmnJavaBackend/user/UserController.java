@@ -1,7 +1,7 @@
 package bpmnProject.akon.bpmnJavaBackend.User;
 
-import bpmnProject.akon.bpmnJavaBackend.DtoClasses.RoleDto;
-import bpmnProject.akon.bpmnJavaBackend.DtoClasses.UserDto;
+import bpmnProject.akon.bpmnJavaBackend.DtoClasses.*;
+import bpmnProject.akon.bpmnJavaBackend.Settings.SettingsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -17,6 +17,7 @@ import java.util.Set;
 public class UserController {
 
     private final UserService userService;
+    private final SettingsService settingsService;
 
     @PatchMapping("/change-password")
     public ResponseEntity<?> changePassword(
@@ -83,4 +84,11 @@ public class UserController {
         UserDto updatedUser = userService.removeRoleFromUser(userId, roleName);
         return ResponseEntity.ok(updatedUser);
     }
+
+//    @PostMapping("/update")
+//    public ResponseEntity<UserDto> updateUserProfile(
+//            @RequestBody UserDto userDto,
+//            Principal connectedUser
+//    ) {
+//    }
 }

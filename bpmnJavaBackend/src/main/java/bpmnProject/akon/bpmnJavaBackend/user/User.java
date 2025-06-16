@@ -29,6 +29,8 @@ public class User implements UserDetails {
     private String lastname;
     private String username;
     private String email;
+    private String phone;
+    private String profilePicture;
 
     @JsonIgnore
     private String password;

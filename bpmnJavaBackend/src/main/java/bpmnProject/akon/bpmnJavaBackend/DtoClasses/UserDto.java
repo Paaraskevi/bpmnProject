@@ -16,5 +16,10 @@ public class UserDto {
     private String firstName;
     private String lastName;
     private String email;
+    private String phone;
+    private String address;
+    private String username;
+    private String password;
+    private String profilePicture;
     private Set<RoleDto> roles;
 }

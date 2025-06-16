@@ -1,7 +1,4 @@
 package bpmnProject.akon.bpmnJavaBackend.File;
-
-import bpmnProject.akon.bpmnJavaBackend.File.File;
-import bpmnProject.akon.bpmnJavaBackend.File.FileService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -31,7 +28,7 @@ public class DownloadService {
                 return ResponseEntity.notFound().build();
             }
 
-            byte[] pdfData = bpmnPdfService.convertBpmnToPdf(file);
+            byte[] pdfData = bpmnPdfService.convertBpmnToSvg(file);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_PDF);
@@ -86,7 +83,7 @@ public class DownloadService {
 
             switch (format.toLowerCase()) {
                 case "pdf":
-                    data = bpmnPdfService.convertBpmnToPdf(file);
+                    data = bpmnPdfService.convertBpmnToSvg(file);
                     mediaType = MediaType.APPLICATION_PDF;
                     fileName = generatePdfFileName(file.getFileName());
                     break;

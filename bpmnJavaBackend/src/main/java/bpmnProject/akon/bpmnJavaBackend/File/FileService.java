@@ -153,7 +153,7 @@ public class FileService {
                 throw new RuntimeException("File or file data is null");
             }
 
-            return bpmnPdfService.convertBpmnToPdf(file);
+            return bpmnPdfService.convertBpmnToSvg(file);
 
         } catch (Exception e) {
             System.err.println("Error converting BPMN to PDF: " + e.getMessage());
