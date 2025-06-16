@@ -1,12 +1,12 @@
 <nav class="navbar navbar-expand-lg navbar-light bg-light">
   <a class="navbar-brand" href="/dashboard">AKON-KORIMVOS</a>
-  
+
   <div class="navbar-nav-container">
     <ul class="navbar-nav">
-      <!-- Only show these buttons when logged in -->
       <ng-container *ngIf="isLoggedIn">
         <li class="nav-item">
-          <input #fileInput type="file" style="display: none" accept=".bpmn,.xml"
+          <input #fileInput type="file" style="display: none"
+            accept=".bpmn,.xml"
             (change)="openFile($event)" />
         </li>
         <li class="nav-item active">
@@ -15,19 +15,42 @@
       </ng-container>
     </ul>
   </div>
-  
+
   <div class="form-inline my-2 my-lg-0">
-    <input class="form-control mr-sm-2" type="search" placeholder="Search"
-      aria-label="Search" *ngIf="isLoggedIn">
     <div class="btn-container">
-      <!-- Only show Dashboard link when logged in -->
-      <a class="nav-link" href="/dashboard" *ngIf="isLoggedIn">Dashboard</a>
-      
-      <!-- Only show Search button when logged in -->
-      <button class="btn btn-outline-success my-2 my-sm-0" 
-        type="submit" *ngIf="isLoggedIn">Search</button>
-    
-      <!-- Show Logout button only when logged in -->
+      <div class="search-section">
+        <form [formGroup]="searchOptions" class="search-form"
+          (ngSubmit)="onSearchSubmit()">
+          <div class="search-input-container">
+            <input
+              class="form-control search-input"
+              type="search"
+              placeholder="Search dashboard cards..."
+              aria-label="Search"
+              formControlName="searchTerm"
+              autocomplete="off"
+              (input)="onSearchInput()">
+            <button
+              type="button"
+              class="clear-search-btn"
+              *ngIf="searchOptions.get('searchTerm')?.value"
+              (click)="clearSearch()">
+              <i class="bx bx-x"></i>
+            </button>
+          </div>
+
+          <!-- Search Results Dropdown -->
+          <div class="search-results" *ngIf="showSearchResults">
+            <div
+              class="search-result-item"
+              *ngFor="let result of searchResults"
+              (click)="selectSearchResult(result)">
+              {{ result }}
+            </div>
+          </div>
+        </form>
+      </div>
+
       <button class="btn btn-logout my-2 my-sm-0" type="button"
         *ngIf="isLoggedIn" (click)="logout()">Logout</button>
     </div>

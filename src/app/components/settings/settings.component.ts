@@ -98,11 +98,14 @@ export class SettingsComponent implements OnInit {
   }
   
   ngOnInit(): void {
+    console.log('Settings component initializing...');
+    
     // Check for userId parameter for admin editing other users
     this.route.params.subscribe(params => {
       if (params['userId']) {
         this.targetUserId = +params['userId'];
         this.isEditingOtherUser = true;
+        console.log('Editing user ID:', this.targetUserId);
       }
     });
 
@@ -113,15 +116,18 @@ export class SettingsComponent implements OnInit {
   }
 
   checkAccess(): boolean {
-    // Check if user is logged in and has a valid token
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    if (!token || !this.authenticationService.isLoggedIn()) {
+    console.log('Checking access...');
+    
+    // Check if user is logged in
+    if (!this.authenticationService.isLoggedIn()) {
+      console.error('User is not logged in');
       this.notificationService.showError('Please log in to access settings');
       this.router.navigate(['/login']);
       return false;
     }
 
     this.currentUser = this.authenticationService.getCurrentUser();
+    console.log('Current user:', this.currentUser);
     
     // Set permission flags
     this.isAdmin = this.authenticationService.isAdmin();
@@ -132,6 +138,14 @@ export class SettingsComponent implements OnInit {
     this.isViewerOnly = this.authenticationService.isViewer() &&
       !this.authenticationService.isModeler() &&
       !this.isAdmin;
+
+    console.log('Permission flags:', {
+      isAdmin: this.isAdmin,
+      isModeler: this.isModeler,
+      canView: this.canView,
+      canEdit: this.canEdit,
+      isViewerOnly: this.isViewerOnly
+    });
 
     // If editing another user, only admins can do this
     if (this.isEditingOtherUser && !this.isAdmin) {
@@ -151,6 +165,7 @@ export class SettingsComponent implements OnInit {
   }
 
   initializeForms(): void {
+    // Initialize forms without disabled state first
     this.profileForm = this.fb.group({
       firstName: ['', Validators.required],
       lastName: ['', Validators.required],
@@ -194,19 +209,14 @@ export class SettingsComponent implements OnInit {
 
   loadUserSettings(): void {
     this.loading = true;
-    
-    // Check token before making request
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    if (!token) {
-      this.notificationService.showError('Authentication token not found. Please log in again.');
-      this.router.navigate(['/login']);
-      return;
-    }
+    console.log('Loading user settings...');
     
     // If editing another user, load their settings
     if (this.isEditingOtherUser && this.targetUserId) {
+      console.log('Loading settings for user ID:', this.targetUserId);
       this.settingsService.getUserSettingsById(this.targetUserId).subscribe({
         next: (settings: UserService) => {
+          console.log('User settings loaded:', settings);
           this.populateForms(settings);
           this.loading = false;
         },
@@ -214,7 +224,7 @@ export class SettingsComponent implements OnInit {
           console.error('Settings load error:', error);
           if (error.status === 401) {
             this.notificationService.showError('Session expired. Please log in again.');
-            this.router.navigate(['/login']);
+            this.authenticationService.logout();
           } else {
             this.notificationService.showError('Failed to load user settings');
           }
@@ -223,8 +233,10 @@ export class SettingsComponent implements OnInit {
       });
     } else {
       // Load current user's settings
+      console.log('Loading current user settings');
       this.settingsService.getUserSettings().subscribe({
         next: (settings: UserService) => {
+          console.log('Current user settings loaded:', settings);
           this.populateForms(settings);
           this.loading = false;
         },
@@ -232,7 +244,7 @@ export class SettingsComponent implements OnInit {
           console.error('Settings load error:', error);
           if (error.status === 401) {
             this.notificationService.showError('Session expired. Please log in again.');
-            this.router.navigate(['/login']);
+            this.authenticationService.logout();
           } else {
             this.notificationService.showError('Failed to load settings');
           }
@@ -243,18 +255,22 @@ export class SettingsComponent implements OnInit {
   }
 
   private populateForms(settings: UserService): void {
+    console.log('Populating forms with settings:', settings);
+    
     this.profileForm.patchValue(settings.profile);
     this.preferencesForm.patchValue(settings.preferences);
     this.securityForm.patchValue(settings.security);
     
-    // Set form states based on permissions
+    // Set form states based on permissions AFTER populating
     this.updateFormStates();
   }
 
   private updateFormStates(): void {
-    const isDisabled = this.isFormDisabled;
+    const shouldDisable = this.isFormDisabled;
+    console.log('Updating form states, should disable:', shouldDisable);
     
-    if (isDisabled) {
+    if (shouldDisable) {
+      // Use programmatic disabling instead of [disabled] attribute
       this.profileForm.disable();
       this.preferencesForm.disable();
       this.securityForm.disable();
@@ -416,14 +432,10 @@ export class SettingsComponent implements OnInit {
   hasRole(role: string): boolean {
     return this.authenticationService.hasRole(role);
   }
-
-  // Check if current user can edit in the current context
   private canEditCurrentContext(): boolean {
     if (this.isEditingOtherUser) {
-      // Only admins can edit other users
       return this.isAdmin;
     } else {
-      // For own settings: modelers and admins can edit, viewers cannot
       return (this.canEdit || this.isAdmin) && !this.isViewerOnly;
     }
   }
@@ -440,7 +452,6 @@ export class SettingsComponent implements OnInit {
   }
 
   get showPasswordTab(): boolean {
-    // Password tab only shows when editing own account
     return !this.isEditingOtherUser;
   }
 }
