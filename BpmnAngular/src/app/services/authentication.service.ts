@@ -138,6 +138,7 @@ export class AuthenticationService {
     this.router.navigate(['/login']);
   }
 
+
   refreshToken(): Observable<AuthenticationResponse> {
     console.log('Refresh token not implemented yet - logging out');
     this.logout();
@@ -176,14 +177,22 @@ export class AuthenticationService {
     }
     return null;
   }
-
   isLoggedIn(): boolean {
-    const token = this.getToken();
-    const isValid = token != null && !this.isTokenExpired(token);
-    console.log('isLoggedIn check:', isValid);
-    return isValid;
-  }
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (!token) {
+      return false;
+    }
 
+    // Check if token is expired
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const now = Date.now() / 1000;
+      return payload.exp > now;
+    } catch (e) {
+      return false;
+    }
+
+  }
   private isTokenExpired(token: string): boolean {
     try {
       const expiry = this.getTokenExpiration(token);

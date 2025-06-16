@@ -17,6 +17,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.Arrays;
 import java.util.List;
 
 @Configuration
@@ -59,14 +60,16 @@ public class SecurityConfiguration {
                                 .requestMatchers("/api/v1/file/upload").hasAnyRole("MODELER", "ADMIN")
                                 .requestMatchers("/api/v1/file/all").hasAnyRole("VIEWER", "MODELER", "ADMIN")
                                 .requestMatchers("/api/v1/file/delete/*").hasRole("ADMIN")
-                                .requestMatchers("/api/v1/file/*/export/pdf").hasAnyRole("VIEWER", "MODELER", "ADMIN")
-                                .requestMatchers("/api/v1/file/*/export/*").hasAnyRole("VIEWER", "MODELER", "ADMIN")
+                                .requestMatchers("/api/v1/file/*/export/**").hasAnyRole("VIEWER", "MODELER", "ADMIN")
                                 .requestMatchers("/api/v1/file/*/download").hasAnyRole("VIEWER", "MODELER", "ADMIN")
                                 .requestMatchers("/api/v1/file/*/content").hasAnyRole("VIEWER", "MODELER", "ADMIN")
                                 .requestMatchers("/api/v1/file/*/validate").hasAnyRole("VIEWER", "MODELER", "ADMIN")
                                 .requestMatchers("/api/v1/file/*/preview").hasAnyRole("VIEWER", "MODELER", "ADMIN")
                                 .requestMatchers("/api/v1/file/file/*").hasAnyRole("VIEWER", "MODELER", "ADMIN")
                                 .requestMatchers("/api/v1/file/*").hasAnyRole("VIEWER", "MODELER", "ADMIN")
+
+                                // DIAGRAM ENDPOINTS (if you add them later)
+                                .requestMatchers("/api/v1/diagrams/**").hasAnyRole("VIEWER", "MODELER", "ADMIN")
 
                                 // TEST ENDPOINTS
                                 .requestMatchers("/api/v1/test/admin/**").hasAnyRole("ADMIN")
@@ -100,11 +103,32 @@ public class SecurityConfiguration {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(List.of("*"));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("*"));
+
+        // Set specific allowed origins instead of patterns for better security
+        configuration.setAllowedOrigins(Arrays.asList("http://localhost:4200"));
+
+        // Set allowed methods
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+
+        // Set allowed headers - be specific about what we allow
+        configuration.setAllowedHeaders(Arrays.asList(
+                "Authorization",
+                "Content-Type",
+                "X-Requested-With",
+                "Accept",
+                "Origin",
+                "Access-Control-Request-Method",
+                "Access-Control-Request-Headers"
+        ));
+
+        // Allow credentials
         configuration.setAllowCredentials(true);
-        configuration.setExposedHeaders(List.of("Authorization"));
+
+        // Set exposed headers
+        configuration.setExposedHeaders(Arrays.asList("Authorization", "Content-Disposition"));
+
+        // Set max age for preflight requests
+        configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

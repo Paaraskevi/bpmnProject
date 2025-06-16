@@ -6,6 +6,7 @@ import { AppFile } from '../files';
 import { AuthenticationService } from './authentication.service';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+
 @Injectable({
   providedIn: 'root'
 })
@@ -24,7 +25,6 @@ export class FileService {
     const formData = new FormData();
     formData.append("file", file, file.name);
     
-    // For multipart upload, don't set Content-Type header - let browser set it
     const headers = this.getUploadHeaders();
     
     console.log('Uploading file with headers:', headers.keys());
@@ -101,40 +101,47 @@ export class FileService {
     );
   }
 
-public exportElementToPdf(elementId: string = 'content', fileName: string = 'exported-file.pdf'): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const element = document.getElementById(elementId);
-    
-    if (!element) {
-      reject(new Error(`Element with ID '${elementId}' not found`));
-      return;
-    }
-
-    html2canvas(element).then(canvas => {
-      const imgWidth = 208;
-      const imgHeight = canvas.height * imgWidth / canvas.width;
-      const contentDataURL = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      
-      pdf.addImage(contentDataURL, 'PNG', 0, 0, imgWidth, imgHeight);
-      pdf.save(fileName);
-      resolve();
-    }).catch(error => {
-      reject(error);
-    });
-  });
-}
-
   /**
-   * Export file in various formats
+   * Export file in various formats (NEW METHOD)
    */
   public exportFile(fileId: number, format: 'xml' | 'svg' | 'png' | 'pdf'): Observable<Blob> {
+    if (!this.authService.canView()) {
+      return throwError(() => new Error('Insufficient permissions to export files'));
+    }
+
     return this.http.get(`${this.apiServerUrl}/${fileId}/export/${format}`, {
       responseType: 'blob',
       headers: this.getAuthHeaders()
     }).pipe(
       catchError(this.handleError)
     );
+  }
+
+  /**
+   * Export element to PDF (client-side conversion)
+   */
+  public exportElementToPdf(elementId: string = 'content', fileName: string = 'exported-file.pdf'): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const element = document.getElementById(elementId);
+      
+      if (!element) {
+        reject(new Error(`Element with ID '${elementId}' not found`));
+        return;
+      }
+
+      html2canvas(element).then(canvas => {
+        const imgWidth = 208;
+        const imgHeight = canvas.height * imgWidth / canvas.width;
+        const contentDataURL = canvas.toDataURL('image/png');
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        
+        pdf.addImage(contentDataURL, 'PNG', 0, 0, imgWidth, imgHeight);
+        pdf.save(fileName);
+        resolve();
+      }).catch(error => {
+        reject(error);
+      });
+    });
   }
 
   /**
@@ -220,15 +227,18 @@ public exportElementToPdf(elementId: string = 'content', fileName: string = 'exp
   }
 
   /**
-   * Error handling with detailed logging
+   * Error handling with detailed logging and better permission handling
    */
   private handleError = (error: HttpErrorResponse): Observable<never> => {
     let errorMessage = 'An error occurred while processing the file';
     
-    console.error('Full error object:', error);
-    console.error('Error status:', error.status);
-    console.error('Error message:', error.message);
-    console.error('Error body:', error.error);
+    console.error('File Service Error Details:', {
+      status: error.status,
+      statusText: error.statusText,
+      url: error.url,
+      message: error.message,
+      error: error.error
+    });
     
     if (error.error instanceof ErrorEvent) {
       // Client-side error
@@ -246,6 +256,7 @@ public exportElementToPdf(elementId: string = 'content', fileName: string = 'exp
           console.error('Permission denied. Check user roles and endpoint security configuration.');
           console.error('Current user token:', this.authService.getToken() ? 'Present' : 'Missing');
           console.error('User roles:', this.authService.getUserRoles());
+          // Don't auto-logout on 403 as it might be expected for some operations
           break;
         case 404:
           errorMessage = 'File not found';

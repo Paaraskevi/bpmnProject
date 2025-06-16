@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnInit, OnDestroy, ViewChild, AfterViewInit, inject } from '@angular/core';
+import { Component, ElementRef, OnInit, OnDestroy, ViewChild, AfterViewInit, inject, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -14,7 +14,14 @@ import jsPDF from 'jspdf';
 import { MatDialog } from '@angular/material/dialog';
 import { DialogBoxComponent } from '../dialog-box/dialog-box.component';
 import { UnSaveDialogComponent } from '../un-save-dialog/un-save-dialog.component';
-import { BpmnService } from '../../services/bpmn.service';
+
+export interface ExportFormat {
+  format: 'pdf' | 'svg' | 'png' | 'xml';
+  label: string;
+  icon: string;
+  description: string;
+}
+
 @Component({
   selector: 'app-bpmn-modeler',
   standalone: true,
@@ -33,6 +40,15 @@ export class BpmnModelerComponent implements OnInit, AfterViewInit, OnDestroy {
   currentFile: AppFile | null = null;
   isViewerOnly: boolean = false;
   hasUnsavedChanges: boolean = false;
+  showExportDropdown: boolean = false;
+
+  // Export formats configuration
+  exportFormats: ExportFormat[] = [
+    { format: 'pdf', label: 'Export as PDF', icon: 'bx-file-pdf', description: 'Portable Document Format' },
+    { format: 'svg', label: 'Export as SVG', icon: 'bx-image', description: 'Scalable Vector Graphics' },
+    { format: 'png', label: 'Export as PNG', icon: 'bx-image-alt', description: 'Portable Network Graphics' },
+    { format: 'xml', label: 'Export as XML', icon: 'bx-code', description: 'BPMN XML Source' }
+  ];
 
   // Permission flags
   canEdit: boolean = false;
@@ -84,9 +100,20 @@ export class BpmnModelerComponent implements OnInit, AfterViewInit, OnDestroy {
     private authService: AuthenticationService,
     private fileService: FileService,
     private route: ActivatedRoute,
-    private router: Router,
-    private bpmnService: BpmnService
+    private router: Router
+    // Remove bpmnService since we'll use fileService directly
   ) { }
+
+  // Listen for clicks outside the export dropdown to close it
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: Event): void {
+    const target = event.target as HTMLElement;
+    const exportDropdown = target.closest('.export-dropdown');
+    
+    if (!exportDropdown && this.showExportDropdown) {
+      this.showExportDropdown = false;
+    }
+  }
 
   ngOnInit(): void {
     this.initializePermissions();
@@ -262,41 +289,246 @@ export class BpmnModelerComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  // Public methods for template
+  // ============= EXPORT FUNCTIONALITY =============
+
+  /**
+   * Toggle export dropdown visibility
+   */
+  toggleExportDropdown(): void {
+    this.showExportDropdown = !this.showExportDropdown;
+  }
+
+  /**
+   * Export diagram in specified format
+   */
+  exportDiagram(format: 'pdf' | 'svg' | 'png' | 'xml'): void {
+    if (!this.canView) {
+      this.showMessage('You do not have permission to export diagrams.', 'error');
+      return;
+    }
+
+    this.showExportDropdown = false; // Close dropdown
+
+    if (!this.currentFile?.id) {
+      this.showMessage('Please save the diagram first before exporting.', 'warning');
+      return;
+    }
+
+    if (!this.modeler) {
+      this.showMessage('BPMN modeler not initialized', 'error');
+      return;
+    }
+
+    console.log(`Exporting diagram as ${format.toUpperCase()}`);
+
+    switch (format) {
+      case 'pdf':
+        this.exportToPdf();
+        break;
+      case 'svg':
+        this.exportToSvg();
+        break;
+      case 'png':
+        this.exportToPng();
+        break;
+      case 'xml':
+        this.exportToXml();
+        break;
+      default:
+        this.showMessage('Unsupported export format', 'error');
+    }
+  }
+
+
+  /**
+   * Export to SVG using backend service
+   */
+  private exportToSvg(): void {
+    if (!this.currentFile?.id) return;
+
+    this.fileService.exportFile(this.currentFile.id, 'svg').subscribe({
+      next: (blob: Blob) => {
+        this.downloadBlob(blob, this.generateFileName('svg'));
+        this.showMessage('Diagram exported to SVG successfully', 'success');
+      },
+      error: (error: any) => {
+        console.error('Error exporting to SVG:', error);
+        this.showMessage('Error exporting to SVG: ' + error.message, 'error');
+      }
+    });
+  }
+
+  /**
+   * Export to PNG using backend service
+   */
+  private exportToPng(): void {
+    if (!this.currentFile?.id) return;
+
+    this.fileService.exportFile(this.currentFile.id, 'png').subscribe({
+      next: (blob: Blob) => {
+        this.downloadBlob(blob, this.generateFileName('png'));
+        this.showMessage('Diagram exported to PNG successfully', 'success');
+      },
+      error: (error: any) => {
+        console.error('Error exporting to PNG:', error);
+        this.showMessage('Error exporting to PNG: ' + error.message, 'error');
+      }
+    });
+  }
+
+  /**
+   * Export to XML using backend service
+   */
+  private exportToXml(): void {
+    if (!this.currentFile?.id) return;
+
+    this.fileService.exportFile(this.currentFile.id, 'xml').subscribe({
+      next: (blob: Blob) => {
+        this.downloadBlob(blob, this.generateFileName('xml'));
+        this.showMessage('Diagram exported to XML successfully', 'success');
+      },
+      error: (error: any) => {
+        console.error('Error exporting to XML:', error);
+        this.showMessage('Error exporting to XML: ' + error.message, 'error');
+      }
+    });
+  }
+
+  /**
+   * Fallback PDF export using client-side conversion (original method)
+   */
+  exportToPdf(): void {
+    if (this.canView) {
+      if (!this.currentFile?.fileName) {
+        this.showMessage('Please save the diagram first before exporting to PDF.', 'warning');
+        return;
+      }
+
+      if (!this.modeler) {
+        this.showMessage('BPMN modeler not initialized', 'error');
+        return;
+      }
+
+      try {
+        this.modeler.saveSVG().then((result: any) => {
+          const svgString = result.svg;
+          this.convertSvgToPdf(svgString, this.currentFile!.fileName!);
+        }).catch((error: any) => {
+          console.error('Error getting SVG from modeler:', error);
+          this.showMessage('Error exporting diagram: ' + error.message, 'error');
+        });
+      } catch (error: any) {
+        console.error('Error in exportToPdf:', error);
+        this.showMessage('Error exporting diagram: ' + error.message, 'error');
+      }
+    }
+  }
+
+  /**
+   * Convert SVG to PDF using client-side libraries
+   */
+  private convertSvgToPdf(svgString: string, fileName: string): void {
+    if (this.canView) {
+      const tempDiv = document.createElement('div');
+      tempDiv.style.cssText = `
+        position: absolute;
+        top: -9999px;
+        left: -9999px;
+        background: white;
+        padding: 20px;
+      `;
+      tempDiv.innerHTML = svgString;
+      document.body.appendChild(tempDiv);
+
+      const svgElement = tempDiv.querySelector('svg');
+      if (!svgElement) {
+        this.showMessage('Could not extract diagram SVG', 'error');
+        document.body.removeChild(tempDiv);
+        return;
+      }
+      svgElement.style.background = 'white';
+      svgElement.style.border = '1px solid #ddd';
+
+      html2canvas(tempDiv, {
+        useCORS: true,
+        allowTaint: true
+      }).then(canvas => {
+        const imgWidth = 190;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const contentDataURL = canvas.toDataURL('image/png', 1.0);
+
+        pdf.setFontSize(16);
+        pdf.text(fileName.replace(/\.(bpmn|xml)$/, ''), 10, 15);
+
+        pdf.addImage(contentDataURL, 'PNG', 10, 25, imgWidth, imgHeight);
+
+        const pdfFileName = fileName.replace(/\.(bpmn|xml)$/, '') + '.pdf';
+        pdf.save(pdfFileName);
+
+        this.showMessage('Diagram exported to PDF successfully', 'success');
+
+        document.body.removeChild(tempDiv);
+      }).catch(error => {
+        console.error('Error converting SVG to PDF:', error);
+        this.showMessage('Error converting diagram to PDF: ' + error.message, 'error');
+        document.body.removeChild(tempDiv);
+      });
+    }
+  }
+
+  /**
+   * Generate filename with proper extension
+   */
+  private generateFileName(format: string): string {
+    const baseName = this.currentFile?.fileName?.replace(/\.(bpmn|xml)$/, '') || 'diagram';
+    return `${baseName}.${format}`;
+  }
+
+  /**
+   * Download blob as file
+   */
+  private downloadBlob(blob: Blob, fileName: string): void {
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    link.click();
+    window.URL.revokeObjectURL(url);
+  }
+
+  // ============= EXISTING METHODS =============
+
   createNewDiagram(): void {
     if (!this.canCreate) {
       this.showMessage('You do not have permission to create new diagrams.', 'error');
       return;
     }
-    const dialogRef = this.popup.open(UnSaveDialogComponent, {
-      width: '400px',
-      disableClose: true
-    });
-    dialogRef.afterClosed().subscribe(result => {
-      if (result === true) {
-        const diagramRequest = {
-          name: 'New Diagram',
-          description: 'Description of the new diagram',
-          xml: this.defaultXml,
-          svg: undefined,
-          isPublic: false,
-          tags: [],
-          category: undefined
-        };
-        this.bpmnService.createDiagram(diagramRequest).subscribe({
-          next: () => {
-            this.showMessage('New diagram created successfully', 'success');
-          }
-        });
-      }
-    });
+
     if (this.hasUnsavedChanges) {
-      this.currentFile = null;
-      this.loadDiagram(this.defaultXml);
-      this.selectedElement = null;
-      this.isEditMode = false;
-      this.hasUnsavedChanges = false;
+      const dialogRef = this.popup.open(UnSaveDialogComponent, {
+        width: '400px',
+        disableClose: true
+      });
+      
+      dialogRef.afterClosed().subscribe(result => {
+        if (result === true) {
+          this.resetToNewDiagram();
+        }
+      });
+    } else {
+      this.resetToNewDiagram();
     }
+  }
+
+  private resetToNewDiagram(): void {
+    this.currentFile = null;
+    this.loadDiagram(this.defaultXml);
+    this.selectedElement = null;
+    this.isEditMode = false;
+    this.hasUnsavedChanges = false;
+    this.showMessage('New diagram ready', 'success');
   }
 
   onFileChange(event: Event): void {
@@ -331,8 +563,6 @@ export class BpmnModelerComponent implements OnInit, AfterViewInit, OnDestroy {
       this.showMessage('You do not have permission to save diagrams.', 'error');
       return;
     }
-
-    // if (!this.modeler) return;
 
     // Type guard to check if modeler has saveXML method
     if ('saveXML' in this.modeler) {
@@ -390,85 +620,6 @@ export class BpmnModelerComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  exportToPdf(): void {
-    if (this.canView) {
-      if (!this.currentFile?.fileName) {
-        this.showMessage('Please save the diagram first before exporting to PDF.', 'warning');
-        return;
-      }
-
-      if (!this.modeler) {
-        this.showMessage('BPMN modeler not initialized', 'error');
-        return;
-      }
-
-      try {
-        this.modeler.saveSVG().then((result: any) => {
-          const svgString = result.svg;
-          this.convertSvgToPdf(svgString, this.currentFile!.fileName!);
-        }).catch((error: any) => {
-          console.error('Error getting SVG from modeler:', error);
-          this.showMessage('Error exporting diagram: ' + error.message, 'error');
-        });
-      } catch (error: any) {
-        console.error('Error in exportToPdf:', error);
-        this.showMessage('Error exporting diagram: ' + error.message, 'error');
-      }
-    }
-  }
-  private convertSvgToPdf(svgString: string, fileName: string): void {
-    if (this.canView) {
-      const tempDiv = document.createElement('div');
-      tempDiv.style.cssText = `
-    position: absolute;
-    top: -9999px;
-    left: -9999px;
-    background: white;
-    padding: 20px;
-  `;
-      tempDiv.innerHTML = svgString;
-      document.body.appendChild(tempDiv);
-
-      const svgElement = tempDiv.querySelector('svg');
-      if (!svgElement) {
-        this.showMessage('Could not extract diagram SVG', 'error');
-        document.body.removeChild(tempDiv);
-        return;
-      }
-      svgElement.style.background = 'white';
-      svgElement.style.border = '1px solid #ddd';
-
-      html2canvas(tempDiv, {
-        useCORS: true,
-        allowTaint: true
-      }).then(canvas => {
-        const imgWidth = 190;
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        const contentDataURL = canvas.toDataURL('image/png', 1.0);
-
-
-        pdf.setFontSize(16);
-        pdf.text(fileName.replace(/\.(bpmn|xml)$/, ''), 10, 15);
-
-
-        pdf.addImage(contentDataURL, 'PNG', 10, 25, imgWidth, imgHeight);
-
-        const pdfFileName = fileName.replace(/\.(bpmn|xml)$/, '') + '.pdf';
-        pdf.save(pdfFileName);
-
-        this.showMessage('Diagram exported to PDF successfully', 'success');
-
-
-        document.body.removeChild(tempDiv);
-      }).catch(error => {
-        console.error('Error converting SVG to PDF:', error);
-        this.showMessage('Error converting diagram to PDF: ' + error.message, 'error');
-        document.body.removeChild(tempDiv);
-      });
-    }
-  }
   toggleEditMode(): void {
     if (!this.canEdit) {
       this.showMessage('You do not have permission to edit element properties.', 'error');

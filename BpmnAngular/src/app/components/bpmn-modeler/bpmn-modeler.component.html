@@ -50,18 +50,48 @@
             </button>
 
             <!-- Save button - only for modelers and admins -->
-            <button class="toolbar-btn"
+             <button class="toolbar-btn"
                 *ngIf="canEdit"
                 (click)="saveDiagram()"
                 title="Save diagram">
                 <i class="bx bx-download"></i>Save
             </button>
-            <button class="toolbar-btn"
-                *ngIf="canView"
-                (click)="exportToPdf()"
-                title="Export to PDF">
-                <i class="bx bx-file"></i>Export PDF
-            </button>
+
+            <!-- Export dropdown - for all users who can view -->
+            <div class="export-dropdown" *ngIf="canView">
+                <button class="toolbar-btn export-btn"
+                    (click)="toggleExportDropdown()"
+                    title="Export diagram">
+                    <i class="bx bx-export"></i>Export
+                    <i class="bx bx-chevron-down" [class.rotated]="showExportDropdown"></i>
+                </button>
+                <div class="export-options" *ngIf="showExportDropdown">
+                    <button class="export-option"
+                        (click)="exportDiagram('pdf')"
+                        title="Export as PDF">
+                        <i class="bx bx-file-pdf"></i>
+                        <span>Export as PDF</span>
+                    </button>
+                    <button class="export-option"
+                        (click)="exportDiagram('svg')"
+                        title="Export as SVG">
+                        <i class="bx bx-image"></i>
+                        <span>Export as SVG</span>
+                    </button>
+                    <button class="export-option"
+                        (click)="exportDiagram('png')"
+                        title="Export as PNG">
+                        <i class="bx bx-image-alt"></i>
+                        <span>Export as PNG</span>
+                    </button>
+                    <button class="export-option"
+                        (click)="exportDiagram('xml')"
+                        title="Export as XML">
+                        <i class="bx bx-code"></i>
+                        <span>Export as XML</span>
+                    </button>
+                </div>
+            </div>
             <!-- Viewer-only indicator -->
             <div class="viewer-mode-indicator" *ngIf="isViewerOnly">
                 <i class="bx bx-show"></i>

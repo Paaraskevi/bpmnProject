@@ -171,8 +171,7 @@ public class FileController {
     }
 
     @GetMapping("/{id}/export/{format}")
-    @PreAuthorize("hasRole('VIEWER') or hasRole('MODELER') or hasRole('ADMIN')")
-    public ResponseEntity<byte[]> exportFile(@PathVariable Long id, @PathVariable String format) {
+    public ResponseEntity<byte[]> exportFile(@PathVariable Long id, @PathVariable String format){
         try {
             File file = fileService.findFileById(id);
             if (file == null) {
