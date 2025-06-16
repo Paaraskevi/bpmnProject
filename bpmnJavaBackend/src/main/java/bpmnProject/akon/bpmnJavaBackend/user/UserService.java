@@ -118,8 +118,6 @@ public class UserService implements UserDetailsService {
     public UserDto assignRoleToUser(Integer userId, String roleName) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-
-        // Αν το role name δεν αρχίζει με ROLE_, πρόσθεσέ το
         String fullRoleName = roleName.startsWith("ROLE_") ? roleName : "ROLE_" + roleName.toUpperCase();
 
         Role role = roleRepository.findByName(fullRoleName)
@@ -138,7 +136,6 @@ public class UserService implements UserDetailsService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Διόρθωση: χρησιμοποίησε το σωστό όνομα ρόλου
         String fullRoleName = roleName.startsWith("ROLE_") ? roleName : "ROLE_" + roleName.toUpperCase();
         Role role = roleRepository.findByName(fullRoleName)
                 .orElseThrow(() -> new RuntimeException("Role not found: " + fullRoleName));
