@@ -124,6 +124,91 @@
   font-size: 1rem;
 }
 
+/* Export Dropdown Styles */
+.export-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.export-btn {
+  position: relative;
+}
+
+.export-btn .bx-chevron-down {
+  margin-left: 0.25rem;
+  transition: transform 0.2s ease;
+}
+
+.export-btn .bx-chevron-down.rotated {
+  transform: rotate(180deg);
+}
+
+.export-options {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 200px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  z-index: 1000;
+  margin-top: 0.25rem;
+  overflow: hidden;
+  animation: dropdownSlideIn 0.2s ease-out;
+}
+
+@keyframes dropdownSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.export-option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: white;
+  border: none;
+  color: #374151;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.export-option:hover {
+  background: #f8fafc;
+  color: #1f2937;
+}
+
+.export-option:first-child {
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+}
+
+.export-option:last-child {
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+}
+
+.export-option i {
+  font-size: 1.125rem;
+  color: #6b7280;
+}
+
+.export-option:hover i {
+  color: #374151;
+}
+
 .viewer-mode-indicator {
   display: flex;
   align-items: center;
@@ -305,6 +390,11 @@
   .modeler-container {
     height: 60vh;
   }
+  
+  .export-options {
+    right: 0;
+    left: auto;
+  }
 }
 
 @media (max-width: 768px) {
@@ -328,6 +418,14 @@
   .permissions-indicator {
     flex-wrap: wrap;
     justify-content: center;
+  }
+
+  .export-options {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    min-width: 280px;
   }
 }
 
@@ -373,7 +471,8 @@
 .toolbar-btn:focus,
 .action-btn:focus,
 .property-input:focus,
-.property-textarea:focus {
+.property-textarea:focus,
+.export-option:focus {
   outline: 2px solid #3b82f6;
   outline-offset: 2px;
 }
@@ -404,4 +503,18 @@
   font-weight: 500;
   color: #6b7280;
   z-index: 101;
+}
+
+/* Export dropdown backdrop for mobile */
+@media (max-width: 768px) {
+  .export-dropdown.open::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.3);
+    z-index: 999;
+  }
 }

@@ -58,7 +58,7 @@ export interface RegisterRequest {
 })
 export class AuthenticationService {
   private readonly API_URL = 'http://localhost:8080/api/v1/auth';
-  private readonly TOKEN_KEY = 'auth-key';
+  private readonly TOKEN_KEY = 'token'; // Changed from 'auth-key' to 'token'
   private readonly USER_KEY = 'currentUser';
 
   private currentUserSubject = new BehaviorSubject<User | null>(this.getUserFromStorage());
@@ -127,8 +127,9 @@ export class AuthenticationService {
         })
       }).subscribe({
         next: () => {
+          localStorage.removeItem(this.TOKEN_KEY);
+          localStorage.removeItem(this.USER_KEY);
           console.log('Backend logout successful');
-          localStorage.clear();
         },
         error: (error) => console.warn('Backend logout failed:', error)
       });
@@ -137,7 +138,6 @@ export class AuthenticationService {
     this.clearSession();
     this.router.navigate(['/login']);
   }
-
 
   refreshToken(): Observable<AuthenticationResponse> {
     console.log('Refresh token not implemented yet - logging out');
@@ -164,6 +164,9 @@ export class AuthenticationService {
     if (typeof window !== 'undefined') {
       localStorage.removeItem(this.TOKEN_KEY);
       localStorage.removeItem(this.USER_KEY);
+      // Also clear from sessionStorage if it exists there
+      sessionStorage.removeItem(this.TOKEN_KEY);
+      sessionStorage.removeItem(this.USER_KEY);
     }
 
     this.tokenSubject.next(null);
@@ -172,13 +175,15 @@ export class AuthenticationService {
 
   getToken(): string | null {
     if (typeof window !== 'undefined') {
-      const token = localStorage.getItem(this.TOKEN_KEY);
-      return token;
+      // Check localStorage first, then sessionStorage
+      return localStorage.getItem(this.TOKEN_KEY) || sessionStorage.getItem(this.TOKEN_KEY);
     }
     return null;
   }
+
+  // Fixed isLoggedIn method
   isLoggedIn(): boolean {
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    const token = this.getToken();
     if (!token) {
       return false;
     }
@@ -187,12 +192,21 @@ export class AuthenticationService {
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
       const now = Date.now() / 1000;
-      return payload.exp > now;
+      const isValid = payload.exp > now;
+      
+      if (!isValid) {
+        console.log('Token is expired');
+        this.clearSession();
+      }
+      
+      return isValid;
     } catch (e) {
+      console.error('Error parsing token:', e);
+      this.clearSession();
       return false;
     }
-
   }
+
   private isTokenExpired(token: string): boolean {
     try {
       const expiry = this.getTokenExpiration(token);

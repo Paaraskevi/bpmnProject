@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Observable, BehaviorSubject, throwError } from 'rxjs';
-import { catchError, map, tap } from 'rxjs/operators';
+import { Observable, BehaviorSubject, throwError, EMPTY, timer } from 'rxjs';
+import { catchError, map, tap, retryWhen, scan, delayWhen, take } from 'rxjs/operators';
 import { AuthenticationService } from './authentication.service';
 
 export interface BpmnDiagram {
@@ -76,10 +76,17 @@ export class BpmnService {
     private http: HttpClient,
     private authService: AuthenticationService
   ) {
-    // Load user's diagrams on service initialization if logged in
-    if (this.authService.isLoggedIn()) {
-      this.loadUserDiagrams();
+    // Only load user diagrams if logged in and has proper permissions
+    if (this.authService.isLoggedIn() && this.canAccessDiagrams()) {
+      this.loadUserDiagramsSafely();
     }
+  }
+
+  /**
+   * Check if user has basic diagram access permissions
+   */
+  private canAccessDiagrams(): boolean {
+    return this.authService.canView() || this.authService.canEdit() || this.authService.isAdmin();
   }
 
   /**
@@ -198,15 +205,24 @@ export class BpmnService {
   }
 
   /**
-   * Get user's own diagrams
+   * Get user's own diagrams - with better error handling
    */
   getUserDiagrams(): Observable<BpmnDiagram[]> {
+    // Check if user has required permissions
+    if (!this.authService.canView()) {
+      console.warn('User lacks permission to view diagrams');
+      return EMPTY; // Return empty observable instead of error
+    }
+
     return this.http.get<BpmnDiagram[]>(`${this.apiUrl}/my-diagrams`, {
       headers: this.authService.getAuthHeaders()
     }).pipe(
       map(diagrams => diagrams.map(d => this.enrichDiagramWithPermissions(d))),
       tap(diagrams => this.diagramsListSubject.next(diagrams)),
-      catchError(this.handleError)
+      catchError((error) => {
+        console.warn('Failed to load user diagrams, falling back to empty list:', error.message);
+        return EMPTY; // Return empty instead of propagating error
+      })
     );
   }
 
@@ -238,7 +254,6 @@ export class BpmnService {
       catchError(this.handleError)
     );
   }
-
 
   /**
    * Export diagram in various formats
@@ -343,12 +358,17 @@ export class BpmnService {
   }
 
   /**
-   * Load user's diagrams into local state
+   * Load user's diagrams into local state - with safe error handling
    */
-  private loadUserDiagrams(): void {
+  private loadUserDiagramsSafely(): void {
     this.getUserDiagrams().subscribe({
-      next: (diagrams) => console.log(`Loaded ${diagrams.length} user diagrams`),
-      error: (error) => console.error('Failed to load user diagrams:', error)
+      next: (diagrams) => {
+        console.log(`Loaded ${diagrams.length} user diagrams`);
+      },
+      error: (error) => {
+        console.warn('Failed to load user diagrams:', error.message);
+        // Don't throw error, just log it
+      }
     });
   }
 
@@ -456,10 +476,18 @@ export class BpmnService {
   }
 
   /**
-   * Handle HTTP errors
+   * Handle HTTP errors with improved error messages and logging
    */
   private handleError = (error: HttpErrorResponse): Observable<never> => {
     let errorMessage = 'An error occurred';
+
+    console.error('BPMN Service Error Details:', {
+      status: error.status,
+      statusText: error.statusText,
+      url: error.url,
+      message: error.message,
+      error: error.error
+    });
 
     if (error.error instanceof ErrorEvent) {
       // Client-side error
@@ -469,10 +497,14 @@ export class BpmnService {
       switch (error.status) {
         case 401:
           errorMessage = 'Unauthorized - please log in again';
-          this.authService.logout();
+          console.warn('Authentication failed, user may need to re-login');
+          // Don't auto-logout here as it might be called during initialization
           break;
         case 403:
           errorMessage = 'Forbidden - insufficient permissions';
+          console.warn('User lacks required permissions for this operation');
+          // Log current user roles for debugging
+          console.debug('User roles:', this.authService.getUserRoles());
           break;
         case 404:
           errorMessage = 'Diagram not found';
@@ -491,7 +523,7 @@ export class BpmnService {
       }
     }
 
-    console.error('BPMN Service Error:', error);
+    console.error('BPMN Service Error:', errorMessage);
     return throwError(() => new Error(errorMessage));
   };
 
@@ -501,5 +533,29 @@ export class BpmnService {
   clearCache(): void {
     this.currentDiagramSubject.next(null);
     this.diagramsListSubject.next([]);
+  }
+
+  /**
+   * Retry failed operations with exponential backoff
+   */
+  retryOperation<T>(operation: () => Observable<T>, maxRetries: number = 3): Observable<T> {
+    return operation().pipe(
+      retryWhen(errors =>
+        errors.pipe(
+          scan((retryCount, error) => {
+            if (retryCount >= maxRetries || error.status < 500) {
+              throw error;
+            }
+            return retryCount + 1;
+          }, 0),
+          delayWhen(retryCount => {
+            const delayMs = Math.pow(2, retryCount) * 1000;
+            console.log(`Retrying operation in ${delayMs}ms (attempt ${retryCount + 1})`);
+            return timer(delayMs);
+          }),
+          take(maxRetries)
+        )
+      )
+    );
   }
 }
