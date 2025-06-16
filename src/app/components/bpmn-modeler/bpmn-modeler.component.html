@@ -1,21 +1,26 @@
-<!-- bpmn-modeler.component.html -->
+
+
 <div class="bpmn-container">
     <!-- User Info and Permissions Banner -->
     <div class="user-info-banner">
         <div class="user-details">
             <span class="user-name">{{ currentUserFullName }}</span>
-            <span class="user-role" 
-                  [class.admin]="isAdmin" 
-                  [class.modeler]="isModeler" 
-                  [class.viewer]="isViewer">
+            <span class="user-role"
+                [class.admin]="isAdmin"
+                [class.modeler]="isModeler"
+                [class.viewer]="isViewer">
                 {{ currentUserRole }}
             </span>
         </div>
         <div class="permissions-indicator">
-            <span class="permission" *ngIf="canView" title="Can view diagrams">👁️ View</span>
-            <span class="permission" *ngIf="canEdit" title="Can edit diagrams">✏️ Edit</span>
-            <span class="permission" *ngIf="canCreate" title="Can create diagrams">➕ Create</span>
-            <span class="permission" *ngIf="canDelete" title="Can delete diagrams">🗑️ Delete</span>
+            <span class="permission" *ngIf="canView"
+                title="Can view diagrams">👁️ View</span>
+            <span class="permission" *ngIf="canEdit"
+                title="Can edit diagrams">✏️ Edit</span>
+            <span class="permission" *ngIf="canCreate"
+                title="Can create diagrams">➕ Create</span>
+            <span class="permission" *ngIf="canDelete"
+                title="Can delete diagrams">🗑️ Delete</span>
         </div>
     </div>
 
@@ -23,13 +28,13 @@
     <div class="bpmn-toolbar">
         <div class="toolbar-group">
             <!-- Create button - only for modelers and admins -->
-            <button class="toolbar-btn" 
-                    *ngIf="canCreate" 
-                    (click)="createNewDiagram()"
-                    title="Create new diagram">
+            <button class="toolbar-btn"
+                *ngIf="canCreate"
+                (click)="createNewDiagram()"
+                title="Create new diagram">
                 <i class="bx bx-plus"></i>New
             </button>
-            
+
             <!-- Open button - for all users who can view -->
             <input
                 #fileInput
@@ -37,73 +42,82 @@
                 accept=".bpmn,.xml"
                 (change)="onFileChange($event)"
                 style="display: none" />
-            <button class="toolbar-btn" 
-                    *ngIf="canView" 
-                    (click)="fileInput.click()"
-                    title="Open diagram">
+            <button class="toolbar-btn"
+                *ngIf="canView"
+                (click)="fileInput.click()"
+                title="Open diagram">
                 <i class="bx bx-folder-open"></i>Open
             </button>
-            
+
             <!-- Save button - only for modelers and admins -->
-            <button class="toolbar-btn" 
-                    *ngIf="canEdit" 
-                    (click)="saveDiagram()"
-                    title="Save diagram">
+            <button class="toolbar-btn"
+                *ngIf="canEdit"
+                (click)="saveDiagram()"
+                title="Save diagram">
                 <i class="bx bx-download"></i>Save
             </button>
-            
+            <button class="toolbar-btn"
+                *ngIf="canView"
+                (click)="exportToPdf()"
+                title="Export to PDF">
+                <i class="bx bx-file"></i>Export PDF
+            </button>
             <!-- Viewer-only indicator -->
             <div class="viewer-mode-indicator" *ngIf="isViewerOnly">
                 <i class="bx bx-show"></i>
                 <span>View Only Mode</span>
             </div>
         </div>
-        
+
         <!-- Zoom controls - available for everyone -->
         <div class="toolbar-group">
             <button class="toolbar-btn" (click)="zoomIn()" title="Zoom in">
                 <i class="fa-solid fa-plus"></i>
             </button>
-            <button class="toolbar-btn" (click)="zoomOut()" title="Zoom out">
+            <button class="toolbar-btn" (click)="zoomOut()"
+                title="Zoom out">
                 <i class="fa-solid fa-minus"></i>
             </button>
-            <button class="toolbar-btn" (click)="zoomToFit()" title="Fit to viewport">
+            <button class="toolbar-btn" (click)="zoomToFit()"
+                title="Fit to viewport">
                 <i class="fa-solid fa-expand"></i>
             </button>
         </div>
     </div>
-    
+
     <!-- Main modeler container -->
     <div #modelerContainer class="modeler-container" id="js-canvas"></div>
-    
+
     <!-- Properties panel - with role-based access -->
     <div class="properties-panel" *ngIf="selectedElement">
         <div class="properties-header">
             <h3>Properties</h3>
             <div class="properties-actions">
                 <!-- Edit button - only for modelers and admins -->
-                <button 
+                <button
                     *ngIf="canEditProperties"
-                    class="action-btn edit-btn" 
+                    class="action-btn edit-btn"
                     (click)="toggleEditMode()"
                     [class.active]="isEditMode"
                     title="Edit element properties">
-                    <i class="bx" [class.bx-edit]="!isEditMode" [class.bx-check]="isEditMode"></i>
+                    <i class="bx" [class.bx-edit]="!isEditMode"
+                        [class.bx-check]="isEditMode"></i>
                     {{ isEditMode ? 'Save' : 'Edit' }}
                 </button>
-                
+
                 <!-- Cancel button - only shown in edit mode -->
-                <button 
+                <button
                     *ngIf="isEditMode && canEditProperties"
-                    class="action-btn cancel-btn" 
+                    class="action-btn cancel-btn"
                     (click)="cancelEdit()"
                     title="Cancel editing">
                     <i class="bx bx-x"></i>
                     Cancel
                 </button>
-                
+
                 <!-- Read-only indicator for viewers -->
-                <div class="readonly-indicator" *ngIf="!canEditProperties && selectedElement">
+                <div class="readonly-indicator"
+                    *ngIf="!canEditProperties && selectedElement">
                     <i class="bx bx-lock"></i>
                     <span>Read Only</span>
                 </div>
@@ -114,7 +128,8 @@
         <div *ngIf="!isEditMode" class="properties-readonly">
             <div class="property-item">
                 <label>Name:</label>
-                <span>{{ selectedElement.businessObject?.name || selectedElement.name || 'N/A' }}</span>
+                <span>{{ selectedElement.businessObject?.name ||
+                    selectedElement.name || 'N/A' }}</span>
             </div>
             <div class="property-item">
                 <label>Element ID:</label>
@@ -124,166 +139,207 @@
                 <label>Element Type:</label>
                 <span>{{ selectedElement.type }}</span>
             </div>
-            <div class="property-item" *ngIf="selectedElement.businessObject">
+            <div class="property-item"
+                *ngIf="selectedElement.businessObject">
                 <label>Business Object:</label>
                 <span>{{ selectedElement.businessObject.$type }}</span>
             </div>
-            <div class="property-item" *ngIf="selectedElement.businessObject">
+            <div class="property-item"
+                *ngIf="selectedElement.businessObject">
                 <label>Documentation:</label>
-                <span>{{ selectedElement.businessObject.documentation?.[0]?.text || 'N/A' }}</span>
+                <span>{{
+                    selectedElement.businessObject.documentation?.[0]?.text
+                    || 'N/A' }}</span>
             </div>
-            <div class="property-item" *ngIf="selectedElement.businessObject">
+            <div class="property-item"
+                *ngIf="selectedElement.businessObject">
                 <label>Assignee:</label>
-                <span>{{ selectedElement.businessObject.assignee || 'N/A' }}</span>
+                <span>{{ selectedElement.businessObject.assignee || 'N/A'
+                    }}</span>
             </div>
-            <div class="property-item" *ngIf="selectedElement.businessObject">
+            <div class="property-item"
+                *ngIf="selectedElement.businessObject">
                 <label>Candidate Users:</label>
-                <span>{{ selectedElement.businessObject.candidateUsers?.join(', ') || 'N/A' }}</span>
+                <span>{{
+                    selectedElement.businessObject.candidateUsers?.join(', ')
+                    ||
+                    'N/A' }}</span>
             </div>
-            <div class="property-item" *ngIf="selectedElement.businessObject">
+            <div class="property-item"
+                *ngIf="selectedElement.businessObject">
                 <label>Candidate Groups:</label>
-                <span>{{ selectedElement.businessObject.candidateGroups?.join(', ') || 'N/A' }}</span>
+                <span>{{
+                    selectedElement.businessObject.candidateGroups?.join(', ')
+                    || 'N/A' }}</span>
             </div>
-            <div class="property-item" *ngIf="selectedElement.businessObject">
+            <div class="property-item"
+                *ngIf="selectedElement.businessObject">
                 <label>Form Key:</label>
-                <span>{{ selectedElement.businessObject.formKey || 'N/A' }}</span>
+                <span>{{ selectedElement.businessObject.formKey || 'N/A'
+                    }}</span>
             </div>
-            <div class="property-item" *ngIf="selectedElement.businessObject">
+            <div class="property-item"
+                *ngIf="selectedElement.businessObject">
                 <label>Priority:</label>
-                <span>{{ selectedElement.businessObject.priority || 'N/A' }}</span>
+                <span>{{ selectedElement.businessObject.priority || 'N/A'
+                    }}</span>
             </div>
-            <div class="property-item" *ngIf="selectedElement.businessObject">
+            <div class="property-item"
+                *ngIf="selectedElement.businessObject">
                 <label>Due Date:</label>
-                <span>{{ selectedElement.businessObject.dueDate || 'N/A' }}</span>
+                <span>{{ selectedElement.businessObject.dueDate || 'N/A'
+                    }}</span>
             </div>
-            <div class="property-item" *ngIf="selectedElement.businessObject">
+            <div class="property-item"
+                *ngIf="selectedElement.businessObject">
                 <label>Follow Up Date:</label>
-                <span>{{ selectedElement.businessObject.followUpDate || 'N/A' }}</span>
+                <span>{{ selectedElement.businessObject.followUpDate ||
+                    'N/A'
+                    }}</span>
             </div>
-            <div class="property-item" *ngIf="selectedElement.businessObject">
+            <div class="property-item"
+                *ngIf="selectedElement.businessObject">
                 <label>Execution Time:</label>
-                <span>{{ selectedElement.businessObject.executionTime || 'N/A' }}</span>
+                <span>{{ selectedElement.businessObject.executionTime ||
+                    'N/A'
+                    }}</span>
             </div>
-            
+
             <!-- Additional read-only properties -->
-            <div class="property-item" *ngIf="selectedElement.businessObject">
+            <div class="property-item"
+                *ngIf="selectedElement.businessObject">
                 <label>Outgoing:</label>
-                <span>{{ selectedElement.businessObject.outgoing?.length || 0 }}</span>
+                <span>{{ selectedElement.businessObject.outgoing?.length ||
+                    0
+                    }}</span>
             </div>
-            <div class="property-item" *ngIf="selectedElement.businessObject">
+            <div class="property-item"
+                *ngIf="selectedElement.businessObject">
                 <label>Incoming:</label>
-                <span>{{ selectedElement.businessObject.incoming?.length || 0 }}</span>
+                <span>{{ selectedElement.businessObject.incoming?.length ||
+                    0
+                    }}</span>
             </div>
-            <div class="property-item" *ngIf="selectedElement.businessObject">
+            <div class="property-item"
+                *ngIf="selectedElement.businessObject">
                 <label>Process:</label>
-                <span>{{ selectedElement.businessObject.processRef?.id || 'N/A' }}</span>
+                <span>{{ selectedElement.businessObject.processRef?.id ||
+                    'N/A'
+                    }}</span>
             </div>
-            <div class="property-item" *ngIf="selectedElement.businessObject">
+            <div class="property-item"
+                *ngIf="selectedElement.businessObject">
                 <label>Event Definitions:</label>
-                <span>{{ selectedElement.businessObject.eventDefinitions?.length || 0 }}</span>
+                <span>{{
+                    selectedElement.businessObject.eventDefinitions?.length
+                    || 0 }}</span>
             </div>
-            <div class="property-item" *ngIf="selectedElement.businessObject">
+            <div class="property-item"
+                *ngIf="selectedElement.businessObject">
                 <label>Extension Elements:</label>
-                <span>{{ selectedElement.businessObject.extensionElements?.values?.length || 0 }}</span>
+                <span>{{
+                    selectedElement.businessObject.extensionElements?.values?.length
+                    || 0 }}</span>
             </div>
         </div>
 
         <!-- Edit mode - only for modelers and admins -->
-        <div *ngIf="isEditMode && canEditProperties" class="properties-edit">
+        <div *ngIf="isEditMode && canEditProperties"
+            class="properties-edit">
             <div class="property-item">
                 <label for="name">Name:</label>
-                <input 
+                <input
                     id="name"
-                    type="text" 
-                    [(ngModel)]="editableProperties.name" 
+                    type="text"
+                    [(ngModel)]="editableProperties.name"
                     class="property-input"
                     placeholder="Enter element name">
             </div>
-            
+
             <div class="property-item">
                 <label for="documentation">Documentation:</label>
-                <textarea 
+                <textarea
                     id="documentation"
-                    [(ngModel)]="editableProperties.documentation" 
+                    [(ngModel)]="editableProperties.documentation"
                     class="property-textarea"
                     placeholder="Enter documentation"
                     rows="3"></textarea>
             </div>
-            
+
             <div class="property-item">
                 <label for="assignee">Assignee:</label>
-                <input 
+                <input
                     id="assignee"
-                    type="text" 
-                    [(ngModel)]="editableProperties.assignee" 
+                    type="text"
+                    [(ngModel)]="editableProperties.assignee"
                     class="property-input"
                     placeholder="Enter assignee">
             </div>
-            
+
             <div class="property-item">
                 <label for="candidateUsers">Candidate Users:</label>
-                <input 
+                <input
                     id="candidateUsers"
-                    type="text" 
-                    [(ngModel)]="editableProperties.candidateUsers" 
+                    type="text"
+                    [(ngModel)]="editableProperties.candidateUsers"
                     class="property-input"
                     placeholder="user1, user2, user3">
             </div>
-            
+
             <div class="property-item">
                 <label for="candidateGroups">Candidate Groups:</label>
-                <input 
+                <input
                     id="candidateGroups"
-                    type="text" 
-                    [(ngModel)]="editableProperties.candidateGroups" 
+                    type="text"
+                    [(ngModel)]="editableProperties.candidateGroups"
                     class="property-input"
                     placeholder="group1, group2, group3">
             </div>
-            
+
             <div class="property-item">
                 <label for="formKey">Form Key:</label>
-                <input 
+                <input
                     id="formKey"
-                    type="text" 
-                    [(ngModel)]="editableProperties.formKey" 
+                    type="text"
+                    [(ngModel)]="editableProperties.formKey"
                     class="property-input"
                     placeholder="Enter form key">
             </div>
-            
+
             <div class="property-item">
                 <label for="priority">Priority:</label>
-                <input 
+                <input
                     id="priority"
-                    type="number" 
-                    [(ngModel)]="editableProperties.priority" 
+                    type="number"
+                    [(ngModel)]="editableProperties.priority"
                     class="property-input"
                     placeholder="Enter priority">
             </div>
-            
+
             <div class="property-item">
                 <label for="dueDate">Due Date:</label>
-                <input 
+                <input
                     id="dueDate"
-                    type="datetime-local" 
-                    [(ngModel)]="editableProperties.dueDate" 
+                    type="datetime-local"
+                    [(ngModel)]="editableProperties.dueDate"
                     class="property-input">
             </div>
-            
+
             <div class="property-item">
                 <label for="followUpDate">Follow Up Date:</label>
-                <input 
+                <input
                     id="followUpDate"
-                    type="datetime-local" 
-                    [(ngModel)]="editableProperties.followUpDate" 
+                    type="datetime-local"
+                    [(ngModel)]="editableProperties.followUpDate"
                     class="property-input">
             </div>
-            
+
             <div class="property-item">
                 <label for="executionTime">Execution Time:</label>
-                <input 
+                <input
                     id="executionTime"
-                    type="text" 
-                    [(ngModel)]="editableProperties.executionTime" 
+                    type="text"
+                    [(ngModel)]="editableProperties.executionTime"
                     class="property-input"
                     placeholder="Enter execution time">
             </div>

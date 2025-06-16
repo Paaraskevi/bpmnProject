@@ -1,7 +1,7 @@
 /* list-files.component.css */
 
 .files-container {
-  max-width: 1200px;
+
   margin: 0 auto;
   padding: 2rem;
   background-color: #f8fafc;
@@ -577,3 +577,31 @@
     background: #374151;
   }
 }
+.file-export-content {
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+}
+
+/* Hide action buttons when generating PDF */
+@media print {
+  .file-actions,
+  .file-footer button,
+  .action-btn {
+    display: none !important;
+  }
+}
+
+/* For bpmn-modeler.component.css */
+#js-canvas {
+  background: white;
+  min-height: 400px;
+}
+
+@media print {
+  .bpmn-toolbar,
+  .properties-panel {
+    display: none !important;
+  }
+}
+
